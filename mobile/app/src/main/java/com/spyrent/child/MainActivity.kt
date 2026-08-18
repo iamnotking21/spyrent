@@ -78,7 +78,11 @@ class MainActivity : AppCompatActivity() {
             contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
         ).orEmpty()
-        return enabled.contains("/")
+
+        // must match our own service, not merely any accessibility service
+        val ours = "$packageName/${SiteBlockerService::class.java.name}"
+        val oursShort = "$packageName/.${SiteBlockerService::class.java.simpleName}"
+        return enabled.split(':').any { it == ours || it == oursShort }
     }
 
     private fun pair() {
@@ -118,9 +122,20 @@ class MainActivity : AppCompatActivity() {
         render()
     }
 
+    /** A first pass at pairing time; SyncWorker keeps it current after that. */
     private fun uploadInventory() {
         lifecycleScope.launch {
-            runCatching { store.api().uploadApps(Usage.installedApps(this@MainActivity)) }
+            runCatching {
+                val installed = Usage.installedApps(this@MainActivity)
+                val needIcons = store.api().uploadApps(installed)
+
+                val withIcons = installed
+                    .filter { needIcons.contains(it.packageName) }
+                    .map { it.copy(icon = Icons.dataUri(this@MainActivity, it.packageName)) }
+                    .filter { it.icon != null }
+
+                if (withIcons.isNotEmpty()) store.api().uploadApps(withIcons, complete = false)
+            }
         }
     }
 

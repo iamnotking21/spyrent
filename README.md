@@ -42,7 +42,7 @@ All device calls except pairing send `Authorization: Bearer <deviceToken>`.
 | POST | `/api/v1/heartbeat` | Mark the device alive |
 | GET | `/api/v1/policy` | Fetch every app and site rule to enforce |
 | GET | `/api/v1/apps` | Read the stored app inventory and rules |
-| POST | `/api/v1/apps` | Upsert the installed app inventory |
+| POST | `/api/v1/apps` | Upsert the installed app inventory; replies with the packages still missing an icon |
 | POST | `/api/v1/events` | Report usage; minutes also tick rule budgets |
 | POST | `/api/v1/requests` | Ask for more time on one app |
 | GET | `/api/v1/requests` | Check what the parent answered |
@@ -156,6 +156,20 @@ Put the pair in `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Without 
 toggle simply does not appear and requests still show up in the portal.
 
 Works in Chrome, Firefox and Edge, and on iOS 16.4+ once the site is added to the home screen.
+
+## How a parent knows what to block
+
+The child app uploads its launchable apps — package name, the label the device shows, and a
+96px icon — at pairing and then on every background sync, so an app installed next week turns
+up on its own. Uninstalled apps drop off the list.
+
+Icons travel once: the upload replies with the packages it still lacks an icon for, and the
+device sends only those. A routine sync is therefore a few kilobytes rather than a re-upload
+of every icon on the phone.
+
+In the portal the app list leads with whatever the child used most this week, with icons and a
+search box, so a parent picks "Roblox" from what is actually on the device rather than typing
+`com.roblox.client` from memory.
 
 ## Asking for more time
 

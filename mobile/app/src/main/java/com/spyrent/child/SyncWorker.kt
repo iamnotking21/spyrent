@@ -39,6 +39,8 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 store.lastReportedAt = now
             }
 
+            syncInventory(api)
+
             val policy = api.fetchPolicy()
             store.childName = policy.childName
             store.saveLockedPackages(policy.apps.filter { it.locked }.map { it.packageName }.toSet())
@@ -53,8 +55,36 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
         }
     }
 
+    /**
+     * Keep the parent's app list current.
+     *
+     * Without this the inventory was only uploaded at pairing, so anything
+     * installed afterwards never reached the portal unless the child happened
+     * to open Spyrent — which is exactly when a parent most wants to see it.
+     */
+    private suspend fun syncInventory(api: Api) {
+        val installed = Usage.installedApps(applicationContext)
+        if (installed.isEmpty()) return
+
+        val needIcons = api.uploadApps(installed, complete = true)
+        if (needIcons.isEmpty()) return
+
+        // second pass carrying only the icons the server asked for, a slice at
+        // a time so a fresh device does not push fifty of them at once
+        val withIcons = installed
+            .filter { needIcons.contains(it.packageName) }
+            .take(MAX_ICONS_PER_SYNC)
+            .map { it.copy(icon = Icons.dataUri(applicationContext, it.packageName)) }
+            .filter { it.icon != null }
+
+        if (withIcons.isNotEmpty()) api.uploadApps(withIcons, complete = false)
+    }
+
     companion object {
         private const val NAME = "spyrent-sync"
+
+        /** Icons are a few kB each; spread a big first sync over a few rounds. */
+        private const val MAX_ICONS_PER_SYNC = 15
 
         fun schedule(context: Context) {
             val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)

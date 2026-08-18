@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db, children, rules, apps, events, timeRequests, auditLog } from "@/db";
 import { requireUser } from "@/lib/guard";
 import {
@@ -15,6 +15,7 @@ import { fmtDate, fmtMinutes } from "@/lib/utils";
 import { describe } from "@/lib/audit";
 import { weekFor } from "@/lib/week";
 import { WeekChart } from "@/components/week-chart";
+import { AppPicker, type PickableApp } from "@/components/app-picker";
 
 export default async function ChildPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,7 +28,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
 
   const [ruleRows, appRows, eventRows, requestRows, auditRows] = await Promise.all([
     db.select().from(rules).where(eq(rules.childId, childId)).orderBy(desc(rules.createdAt)),
-    db.select().from(apps).where(eq(apps.childId, childId)).orderBy(desc(apps.seenAt)).limit(60),
+    db.select().from(apps).where(eq(apps.childId, childId)).orderBy(desc(apps.seenAt)),
     db
       .select()
       .from(events)
@@ -48,6 +49,29 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   ]);
 
   const week = await weekFor(childId, child.timezone);
+
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const usage = await db
+    .select({
+      target: events.target,
+      minutes: sql<number>`coalesce(sum(${events.minutes}), 0)::int`,
+    })
+    .from(events)
+    .where(and(eq(events.childId, childId), gte(events.occurredAt, weekAgo)))
+    .groupBy(events.target);
+
+  const minutesByPackage = new Map(usage.map((u) => [u.target, u.minutes]));
+  const ruledPackages = new Set(
+    ruleRows.filter((r) => r.kind === "app").map((r) => r.target),
+  );
+
+  const pickable: PickableApp[] = appRows.map((a) => ({
+    packageName: a.packageName,
+    label: a.label,
+    icon: a.icon,
+    minutesThisWeek: minutesByPackage.get(a.packageName) ?? 0,
+    ruled: ruledPackages.has(a.packageName),
+  }));
 
   const appRules = ruleRows.filter((r) => r.kind === "app");
   const siteRules = ruleRows.filter((r) => r.kind === "site");
@@ -124,40 +148,11 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
 
       <section className="grid lg:grid-cols-2 gap-6 items-start">
         <div className="card p-6">
-          <SectionTitle title="App limits" hint="Leave minutes empty to block the app outright." />
-          <ActionForm action={upsertRuleAction} submitLabel="Save app rule">
-            <input type="hidden" name="childId" value={child.id} />
-            <input type="hidden" name="kind" value="app" />
-            <div>
-              <label className="label" htmlFor="target">
-                App
-              </label>
-              {appRows.length ? (
-                <select id="target" name="target" className="input" required>
-                  {appRows.map((a) => (
-                    <option key={a.id} value={a.packageName}>
-                      {a.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  id="target"
-                  name="target"
-                  className="input"
-                  placeholder="com.roblox.client"
-                  required
-                />
-              )}
-            </div>
-            <Field
-              label="Daily minutes"
-              name="dailyMinutes"
-              type="number"
-              placeholder="60"
-              required={false}
-            />
-          </ActionForm>
+          <SectionTitle
+            title="App limits"
+            hint="Busiest apps first. Leave the minutes empty to block one outright."
+          />
+          <AppPicker apps={pickable} childId={child.id} />
 
           <ul className="mt-6 space-y-2">
             {appRules.map((r) => (

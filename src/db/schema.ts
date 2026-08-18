@@ -71,6 +71,8 @@ export const apps = pgTable(
     packageName: text("package_name").notNull(),
     label: text("label").notNull(),
     sizeBytes: integer("size_bytes"),
+    /** 96px PNG as a data URI. Uploaded once per app, not on every sync. */
+    icon: text("icon"),
     seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("apps_child_pkg_idx").on(t.childId, t.packageName)],

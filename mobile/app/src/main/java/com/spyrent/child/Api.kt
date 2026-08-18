@@ -115,19 +115,34 @@ class Api(private val baseUrl: String, private val deviceToken: String?) {
         return Policy(res.getJSONObject("child").getString("name"), apps, sites)
     }
 
-    /** Upload the installed app inventory so the parent can pick from real names. */
-    suspend fun uploadApps(apps: List<InstalledApp>) {
-        if (apps.isEmpty()) return
+    /**
+     * Upload the installed app inventory so the parent picks real names, not
+     * package ids. Returns the packages the server still wants an icon for.
+     *
+     * complete=true means "this is everything on the device", which lets the
+     * server drop apps that have been uninstalled. An icon top-up sends false.
+     */
+    suspend fun uploadApps(apps: List<InstalledApp>, complete: Boolean = true): List<String> {
+        if (apps.isEmpty()) return emptyList()
+
         val array = JSONArray()
         apps.forEach {
-            array.put(
-                JSONObject()
-                    .put("packageName", it.packageName)
-                    .put("label", it.label)
-                    .put("sizeBytes", it.sizeBytes),
-            )
+            val entry = JSONObject()
+                .put("packageName", it.packageName)
+                .put("label", it.label)
+                .put("sizeBytes", it.sizeBytes)
+            if (it.icon != null) entry.put("icon", it.icon)
+            array.put(entry)
         }
-        request("/api/v1/apps", "POST", JSONObject().put("apps", array))
+
+        val res = request(
+            "/api/v1/apps",
+            "POST",
+            JSONObject().put("apps", array).put("complete", complete),
+        )
+
+        val needed = res.optJSONArray("needIcons") ?: return emptyList()
+        return (0 until needed.length()).map { needed.getString(it) }
     }
 
     /** Ask the parent for more time on one app. */
@@ -157,7 +172,12 @@ class Api(private val baseUrl: String, private val deviceToken: String?) {
     }
 }
 
-data class InstalledApp(val packageName: String, val label: String, val sizeBytes: Long)
+data class InstalledApp(
+    val packageName: String,
+    val label: String,
+    val sizeBytes: Long,
+    val icon: String? = null,
+)
 data class UsageEvent(val packageName: String, val label: String, val minutes: Int, val blocked: Boolean)
 
 private inline fun <T> JSONArray.mapObjects(transform: (JSONObject) -> T): List<T> =
