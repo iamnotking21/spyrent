@@ -100,6 +100,8 @@ npm test
 - `tests/accounts.test.mjs` — validation, bcrypt storage, duplicate username and email
 - `tests/isolation.test.mjs` — one parent cannot read another parent's children, rules or
   activity; a device token only ever returns its own child
+- `tests/cron.test.mjs` — the daily budget reset clears spent minutes once, refuses an
+  unauthenticated call, and does not wipe minutes spent later the same day
 - `tests/ratelimit.test.mjs` — sign-in lockout after repeated failures, window expiry, and that
   one address cannot lock a stranger out of their account
 - `tests/session.test.mjs` — disabling or deleting an account ends its live session; forged
@@ -107,6 +109,14 @@ npm test
 
 They run against the database in `DATABASE_URL` and delete every row they create.
 Point them at a Neon branch if you would rather not touch production data.
+
+## Daily reset
+
+Budgets are cleared once a day by `/api/cron/reset`, scheduled in `vercel.json`. Vercel sends
+`CRON_SECRET` as a bearer token; without that variable the route refuses to run in production,
+since an open reset endpoint is a child's way around every limit. The job runs at midnight UTC —
+families far from that meridian will see the day roll over at an odd hour until it is made
+timezone-aware.
 
 ## Security notes
 

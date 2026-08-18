@@ -6,8 +6,8 @@ const features = [
     body: "Give each app a daily budget in minutes. When it runs out, it locks — no arguing with the clock.",
   },
   {
-    title: "Safer browsing",
-    body: "Block domains per child. Adult content lists come pre-loaded and you can add your own in one line.",
+    title: "Site rules you control",
+    body: "Name the domains you do not want opened, per child. Add them one line at a time — no list you cannot see.",
   },
   {
     title: "Honest history",
@@ -99,7 +99,7 @@ export default function Home() {
             ))}
           </div>
           <div className="mt-6 rounded-xl bg-paper p-4 text-sm text-ink-700">
-            Roblox locks in 5 minutes. Mia can ask for more — you approve from your phone.
+            Roblox locks in 5 minutes. Change the limit from your phone whenever you like.
           </div>
         </div>
       </section>
