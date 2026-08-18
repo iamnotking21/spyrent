@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
-import { db, children, rules, apps, events } from "@/db";
+import { and, desc, eq } from "drizzle-orm";
+import { db, children, rules, apps, events, timeRequests } from "@/db";
 import { requireUser } from "@/lib/guard";
 import {
   upsertRuleAction,
   deleteRuleAction,
   rotateTokenAction,
   removeChildAction,
+  answerRequestAction,
 } from "@/app/actions";
 import { ActionForm, Field } from "@/components/forms";
 import { Badge, SectionTitle } from "@/components/ui";
@@ -21,7 +22,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   if (!child) notFound();
   if (s.role !== "admin" && child.parentId !== s.uid) notFound();
 
-  const [ruleRows, appRows, eventRows] = await Promise.all([
+  const [ruleRows, appRows, eventRows, requestRows] = await Promise.all([
     db.select().from(rules).where(eq(rules.childId, childId)).orderBy(desc(rules.createdAt)),
     db.select().from(apps).where(eq(apps.childId, childId)).orderBy(desc(apps.seenAt)).limit(60),
     db
@@ -30,6 +31,11 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
       .where(eq(events.childId, childId))
       .orderBy(desc(events.occurredAt))
       .limit(25),
+    db
+      .select()
+      .from(timeRequests)
+      .where(and(eq(timeRequests.childId, childId), eq(timeRequests.status, "pending")))
+      .orderBy(desc(timeRequests.createdAt)),
   ]);
 
   const appRules = ruleRows.filter((r) => r.kind === "app");
@@ -47,6 +53,42 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           <button className="btn btn-ghost text-rose-ink">Remove child</button>
         </form>
       </div>
+
+      {requestRows.length > 0 ? (
+        <section className="card p-6 border-amber-soft">
+          <SectionTitle
+            title="Waiting on you"
+            hint="Granting adds the minutes to today only — tomorrow the usual limit is back."
+          />
+          <ul className="space-y-2">
+            {requestRows.map((r) => (
+              <li
+                key={r.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-soft/40 px-4 py-3"
+              >
+                <div>
+                  <p className="font-semibold">
+                    {r.label ?? r.target} — {fmtMinutes(r.minutes)} more
+                  </p>
+                  <p className="text-xs text-ink-500">asked {fmtDate(r.createdAt)}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <form action={answerRequestAction}>
+                    <input type="hidden" name="requestId" value={r.id} />
+                    <input type="hidden" name="grant" value="true" />
+                    <button className="btn btn-primary py-1.5">Give {r.minutes} min</button>
+                  </form>
+                  <form action={answerRequestAction}>
+                    <input type="hidden" name="requestId" value={r.id} />
+                    <input type="hidden" name="grant" value="false" />
+                    <button className="btn btn-ghost py-1.5">Not now</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="card p-6">
         <SectionTitle
@@ -115,9 +157,14 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
                   {r.dailyMinutes === null ? (
                     <Badge tone="rose">blocked</Badge>
                   ) : (
-                    <Badge tone={r.usedMinutes >= r.dailyMinutes ? "rose" : "amber"}>
-                      {fmtMinutes(r.usedMinutes)} / {fmtMinutes(r.dailyMinutes)}
-                      {r.usedMinutes >= r.dailyMinutes ? " · used up" : ""}
+                    <Badge
+                      tone={
+                        r.usedMinutes >= r.dailyMinutes + r.bonusMinutes ? "rose" : "amber"
+                      }
+                    >
+                      {fmtMinutes(r.usedMinutes)} / {fmtMinutes(r.dailyMinutes + r.bonusMinutes)}
+                      {r.bonusMinutes > 0 ? ` (+${r.bonusMinutes} today)` : ""}
+                      {r.usedMinutes >= r.dailyMinutes + r.bonusMinutes ? " · used up" : ""}
                     </Badge>
                   )}
                   <form action={deleteRuleAction}>

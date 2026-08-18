@@ -44,6 +44,8 @@ All device calls except pairing send `Authorization: Bearer <deviceToken>`.
 | GET | `/api/v1/apps` | Read the stored app inventory and rules |
 | POST | `/api/v1/apps` | Upsert the installed app inventory |
 | POST | `/api/v1/events` | Report usage; minutes also tick rule budgets |
+| POST | `/api/v1/requests` | Ask for more time on one app |
+| GET | `/api/v1/requests` | Check what the parent answered |
 
 ## Data model
 
@@ -98,6 +100,8 @@ npm test
 ```
 
 - `tests/accounts.test.mjs` — validation, bcrypt storage, duplicate username and email
+- `tests/requests.test.mjs` — asking for more time, one open request per app, and that a
+  granted bonus expires overnight instead of raising the limit for good
 - `tests/isolation.test.mjs` — one parent cannot read another parent's children, rules or
   activity; a device token only ever returns its own child
 - `tests/cron.test.mjs` — the daily budget reset clears spent minutes once, refuses an
@@ -130,3 +134,10 @@ timezone-aware.
 - Sign-in is throttled: eight failures against the same username-and-address pair lock it for
   fifteen minutes. The counter lives in Postgres, not in memory — serverless instances do not
   share memory, so an in-process map would reset on every cold start and throttle nothing.
+
+## Asking for more time
+
+A child who runs out of minutes can ask from the lock screen. The request lands on the
+child's page in the portal, where granting it adds the minutes as a **bonus for today**
+rather than raising the standing limit — so tomorrow the usual rule applies without anyone
+remembering to undo anything. Repeated taps do not stack up: one open request per app.

@@ -14,6 +14,7 @@ import { relations } from "drizzle-orm";
 export const roleEnum = pgEnum("role", ["admin", "parent"]);
 export const ruleKindEnum = pgEnum("rule_kind", ["app", "site"]);
 export const eventKindEnum = pgEnum("event_kind", ["app", "site"]);
+export const requestStatusEnum = pgEnum("request_status", ["pending", "granted", "denied"]);
 
 /** Parent + admin accounts. */
 export const users = pgTable(
@@ -91,6 +92,8 @@ export const rules = pgTable(
     label: text("label"),
     dailyMinutes: integer("daily_minutes"),
     usedMinutes: integer("used_minutes").notNull().default(0),
+    /** Extra minutes a parent granted for today only; cleared at rollover. */
+    bonusMinutes: integer("bonus_minutes").notNull().default(0),
     windowStart: text("window_start"),
     windowEnd: text("window_end"),
     blocked: boolean("blocked").notNull().default(true),
@@ -133,6 +136,28 @@ export const loginAttempts = pgTable(
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
   },
   (t) => [uniqueIndex("login_attempts_identifier_idx").on(t.identifier)],
+);
+
+/**
+ * A child asking for more time on an app. The parent answers from the portal;
+ * granting adds the minutes straight onto the rule budget.
+ */
+export const timeRequests = pgTable(
+  "time_requests",
+  {
+    id: serial("id").primaryKey(),
+    childId: integer("child_id")
+      .notNull()
+      .references(() => children.id, { onDelete: "cascade" }),
+    ruleId: integer("rule_id").references(() => rules.id, { onDelete: "cascade" }),
+    target: text("target").notNull(),
+    label: text("label"),
+    minutes: integer("minutes").notNull().default(15),
+    status: requestStatusEnum("status").notNull().default("pending"),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("time_requests_child_idx").on(t.childId, t.status)],
 );
 
 /**

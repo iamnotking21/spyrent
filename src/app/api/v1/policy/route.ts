@@ -21,8 +21,9 @@ export async function GET(req: Request) {
       .map((r) => ({
         packageName: r.target,
         label: r.label ?? r.target,
-        dailyMinutes: r.dailyMinutes,
+        dailyMinutes: r.dailyMinutes === null ? null : r.dailyMinutes + r.bonusMinutes,
         usedMinutes: r.usedMinutes,
+        bonusMinutes: r.bonusMinutes,
         blocked: r.blocked,
       })),
     sites: rows

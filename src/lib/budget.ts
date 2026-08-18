@@ -34,7 +34,7 @@ export async function rolloverIfNeeded(child: Pick<Child, "id" | "timezone">): P
 
   await db
     .update(rules)
-    .set({ usedMinutes: 0, resetOn: today })
+    .set({ usedMinutes: 0, bonusMinutes: 0, resetOn: today })
     .where(
       and(
         eq(rules.childId, child.id),
@@ -50,6 +50,7 @@ export async function rolloverAll(): Promise<number> {
   const rows = await db.execute(sql`
     update rules r
     set used_minutes = 0,
+        bonus_minutes = 0,
         reset_on = to_char(now() at time zone c.timezone, 'YYYY-MM-DD')
     from children c
     where c.id = r.child_id

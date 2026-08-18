@@ -45,7 +45,12 @@ class BlockerService : Service() {
                             current != packageName &&
                             store.lockedPackages().contains(current)
                         ) {
-                            LockActivity.show(this@BlockerService, Usage.label(this@BlockerService, current))
+                            LockActivity.show(
+                                this@BlockerService,
+                                Usage.label(this@BlockerService, current),
+                                LockActivity.KIND_BUDGET,
+                                current,
+                            )
                         }
                     }
                 }

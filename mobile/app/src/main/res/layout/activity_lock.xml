@@ -26,6 +26,26 @@
         android:textSize="16sp" />
 
     <Button
+        android:id="@+id/askButton"
+        style="?attr/borderlessButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:text="Ask for 15 more minutes"
+        android:textColor="@color/brand"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/askResult"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:textColor="@color/muted"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+    <Button
         android:id="@+id/home"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

@@ -3,8 +3,8 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
-import { db, users, children, rules, auditLog } from "@/db";
+import { and, eq, sql } from "drizzle-orm";
+import { db, users, children, rules, auditLog, timeRequests } from "@/db";
 import { hashPassword, login, destroySession, getSession } from "@/lib/auth";
 import { requireUser, requireAdmin } from "@/lib/guard";
 import { createParentAccount } from "@/lib/accounts";
@@ -231,4 +231,45 @@ export async function issueResetLinkAction(_: State, form: FormData): Promise<St
 
   // shown once and never stored, so it cannot leak from the table later
   return { notice: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/reset/${token}` };
+}
+
+export async function answerRequestAction(form: FormData) {
+  const requestId = Number(form.get("requestId"));
+  const grant = String(form.get("grant")) === "true";
+
+  const [request] = await db
+    .select()
+    .from(timeRequests)
+    .where(eq(timeRequests.id, requestId))
+    .limit(1);
+  if (!request || request.status !== "pending") return;
+
+  const child = await ownChild(request.childId);
+  if (!child) return;
+
+  await db
+    .update(timeRequests)
+    .set({ status: grant ? "granted" : "denied", answeredAt: new Date() })
+    .where(eq(timeRequests.id, requestId));
+
+  if (grant) {
+    // granting stretches today's budget rather than lifting the rule, so the
+    // limit is back to normal tomorrow without anyone remembering to undo it
+    await db
+      .update(rules)
+      .set({
+        bonusMinutes: sql`${rules.bonusMinutes} + ${request.minutes}`,
+        blocked: false,
+      })
+      .where(
+        and(
+          eq(rules.childId, request.childId),
+          eq(rules.kind, "app"),
+          eq(rules.target, request.target),
+        ),
+      );
+  }
+
+  revalidatePath(`/portal/children/${request.childId}`);
+  revalidatePath("/portal");
 }

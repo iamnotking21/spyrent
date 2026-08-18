@@ -130,6 +130,15 @@ class Api(private val baseUrl: String, private val deviceToken: String?) {
         request("/api/v1/apps", "POST", JSONObject().put("apps", array))
     }
 
+    /** Ask the parent for more time on one app. */
+    suspend fun requestMoreTime(packageName: String, label: String, minutes: Int) {
+        val body = JSONObject()
+            .put("target", packageName)
+            .put("label", label)
+            .put("minutes", minutes)
+        request("/api/v1/requests", "POST", body)
+    }
+
     /** Report usage. The server adds these minutes to the matching rule budget. */
     suspend fun reportUsage(events: List<UsageEvent>) {
         if (events.isEmpty()) return
