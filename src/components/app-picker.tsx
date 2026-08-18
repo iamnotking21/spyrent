@@ -43,11 +43,12 @@ function Fallback({ label }: { label: string }) {
 export function AppPicker({ apps, childId }: { apps: PickableApp[]; childId: number }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [state, action] = useActionState<State, FormData>(upsertRuleAction, undefined);
 
-  const shown = useMemo(() => {
+  const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const matches = needle
+    const filtered = needle
       ? apps.filter(
           (a) =>
             a.label.toLowerCase().includes(needle) ||
@@ -56,10 +57,14 @@ export function AppPicker({ apps, childId }: { apps: PickableApp[]; childId: num
       : apps;
 
     // busiest first: that is what a parent came here to deal with
-    return [...matches]
-      .sort((a, b) => b.minutesThisWeek - a.minutesThisWeek || a.label.localeCompare(b.label))
-      .slice(0, query ? 30 : 8);
+    return [...filtered].sort(
+      (a, b) => b.minutesThisWeek - a.minutesThisWeek || a.label.localeCompare(b.label),
+    );
   }, [apps, query]);
+
+  const collapsedCount = 8;
+  const shown = query || showAll ? matches : matches.slice(0, collapsedCount);
+  const hiddenCount = query ? 0 : Math.max(0, matches.length - collapsedCount);
 
   const chosen = apps.find((a) => a.packageName === selected) ?? null;
 
@@ -83,7 +88,7 @@ export function AppPicker({ apps, childId }: { apps: PickableApp[]; childId: num
         aria-label="Search installed apps"
       />
 
-      <ul className="space-y-1.5 max-h-72 overflow-y-auto">
+      <ul className="space-y-1.5 max-h-96 overflow-y-auto pr-1">
         {shown.map((app) => {
           const isSelected = app.packageName === selected;
           return (
@@ -127,6 +132,26 @@ export function AppPicker({ apps, childId }: { apps: PickableApp[]; childId: num
           <li className="text-sm text-ink-500 px-1 py-2">Nothing matches that.</li>
         ) : null}
       </ul>
+
+      {hiddenCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="text-sm font-semibold text-brand-700 hover:text-brand-600"
+        >
+          Show {hiddenCount} more app{hiddenCount === 1 ? "" : "s"}
+        </button>
+      ) : null}
+
+      {showAll && !query ? (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          className="text-sm text-ink-500 hover:text-ink-700"
+        >
+          Show fewer
+        </button>
+      ) : null}
 
       {chosen ? (
         <form action={action} className="rounded-xl border border-line p-4 space-y-3">

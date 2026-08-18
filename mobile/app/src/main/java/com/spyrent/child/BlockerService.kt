@@ -19,8 +19,15 @@ import kotlinx.coroutines.launch
 /**
  * Watches the foreground app and shows the lock screen when a locked app opens.
  *
- * Deliberately a visible foreground service: the child is meant to know this is
- * running. Spyrent is a house rule, not a hidden tracker.
+ * Also polls the policy on its own short cycle. WorkManager's fifteen-minute
+ * sync is too slow for a rule to feel real-time — a parent blocking an app
+ * should not have their child playing it for another quarter of an hour. This
+ * service is already alive and battery-exempt (it has to be, to watch the
+ * foreground app at all), so it is the cheapest place to also refresh the
+ * cached rules on a much shorter interval.
+ *
+ * Deliberately a visible foreground service: the child is meant to know this
+ * is running. Spyrent is a house rule, not a hidden tracker.
  */
 class BlockerService : Service() {
 
@@ -36,6 +43,8 @@ class BlockerService : Service() {
 
     private fun watch() {
         val store = Store(this)
+        var ticksSincePolicySync = 0
+
         scope.launch {
             while (isActive) {
                 runCatching {
@@ -54,6 +63,13 @@ class BlockerService : Service() {
                         }
                     }
                 }
+
+                ticksSincePolicySync++
+                if (ticksSincePolicySync >= POLICY_SYNC_EVERY_N_TICKS) {
+                    ticksSincePolicySync = 0
+                    runCatching { PolicySync.refresh(this@BlockerService, store.api(), store) }
+                }
+
                 delay(CHECK_INTERVAL_MS)
             }
         }
@@ -90,6 +106,9 @@ class BlockerService : Service() {
         private const val CHANNEL_ID = "spyrent-blocker"
         private const val NOTIFICATION_ID = 4711
         private const val CHECK_INTERVAL_MS = 2_000L
+
+        /** 2s checks × 10 = a rule reaches the device within ~20s of being saved. */
+        private const val POLICY_SYNC_EVERY_N_TICKS = 10
 
         fun start(context: Context) {
             val intent = Intent(context, BlockerService::class.java)
