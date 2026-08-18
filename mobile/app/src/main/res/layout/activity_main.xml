@@ -130,6 +130,25 @@
                 android:text="Allow usage access"
                 android:visibility="gone" />
 
+            <TextView
+                android:id="@+id/sitesHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="To keep blocked sites blocked, Spyrent needs to see your browser's address bar. Nothing you type elsewhere is read."
+                android:textColor="@color/muted"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/sitesButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:backgroundTint="@color/brand"
+                android:text="Allow site blocking"
+                android:visibility="gone" />
+
             <Button
                 android:id="@+id/unpairButton"
                 style="?attr/borderlessButtonStyle"

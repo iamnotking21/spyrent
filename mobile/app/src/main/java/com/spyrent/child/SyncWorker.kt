@@ -42,6 +42,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
             val policy = api.fetchPolicy()
             store.childName = policy.childName
             store.saveLockedPackages(policy.apps.filter { it.locked }.map { it.packageName }.toSet())
+            store.saveBlockedDomains(policy.sites.filter { it.blocked }.map { it.domain }.toSet())
 
             api.heartbeat()
             Result.success()

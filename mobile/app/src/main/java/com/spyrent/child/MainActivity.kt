@@ -29,6 +29,9 @@ class MainActivity : AppCompatActivity() {
         binding.usageButton.setOnClickListener {
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         }
+        binding.sitesButton.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        }
         binding.unpairButton.setOnClickListener { unpair() }
     }
 
@@ -49,6 +52,10 @@ class MainActivity : AppCompatActivity() {
             else -> "Connected as ${store.childName ?: "this device"}"
         }
 
+        val needsSites = paired && store.blockedDomains().isNotEmpty() && !siteBlockingOn()
+        binding.sitesButton.visibility = if (needsSites) android.view.View.VISIBLE else android.view.View.GONE
+        binding.sitesHint.visibility = if (needsSites) android.view.View.VISIBLE else android.view.View.GONE
+
         val needsUsage = !Usage.hasPermission(this)
         binding.usageButton.visibility = if (needsUsage) android.view.View.VISIBLE else android.view.View.GONE
         binding.usageHint.visibility = if (needsUsage) android.view.View.VISIBLE else android.view.View.GONE
@@ -63,6 +70,15 @@ class MainActivity : AppCompatActivity() {
             }
             refreshPolicy()
         }
+    }
+
+    /** Accessibility services are enabled in Settings; this reads that list. */
+    private fun siteBlockingOn(): Boolean {
+        val enabled = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+        ).orEmpty()
+        return enabled.contains("/")
     }
 
     private fun pair() {
@@ -114,6 +130,9 @@ class MainActivity : AppCompatActivity() {
                 .onSuccess { policy ->
                     store.saveLockedPackages(
                         policy.apps.filter { it.locked }.map { it.packageName }.toSet(),
+                    )
+                    store.saveBlockedDomains(
+                        policy.sites.filter { it.blocked }.map { it.domain }.toSet(),
                     )
                     binding.rules.text = summarise(policy)
                 }

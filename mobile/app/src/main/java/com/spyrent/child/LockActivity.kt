@@ -16,8 +16,15 @@ class LockActivity : Activity() {
         binding = ActivityLockBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val appLabel = intent.getStringExtra(EXTRA_LABEL) ?: "That app"
-        binding.title.text = "$appLabel is done for today"
+        val label = intent.getStringExtra(EXTRA_LABEL) ?: "That app"
+
+        if (intent.getStringExtra(EXTRA_KIND) == KIND_SITE) {
+            binding.title.text = "$label is blocked"
+            binding.subtitle.text = "This site is not allowed on this device."
+        } else {
+            binding.title.text = "$label is done for today"
+            binding.subtitle.text = "Time is up for now. Ask at home if you need more."
+        }
 
         binding.home.setOnClickListener {
             startActivity(
@@ -37,11 +44,15 @@ class LockActivity : Activity() {
 
     companion object {
         private const val EXTRA_LABEL = "label"
+        private const val EXTRA_KIND = "kind"
+        const val KIND_BUDGET = "budget"
+        const val KIND_SITE = "site"
 
-        fun show(context: Context, appLabel: String) {
+        fun show(context: Context, appLabel: String, kind: String = KIND_BUDGET) {
             context.startActivity(
                 Intent(context, LockActivity::class.java).apply {
                     putExtra(EXTRA_LABEL, appLabel)
+                    putExtra(EXTRA_KIND, kind)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
                         Intent.FLAG_ACTIVITY_NO_HISTORY

@@ -37,6 +37,11 @@ class Store(context: Context) {
 
     fun lockedPackages(): Set<String> = prefs.getStringSet(KEY_LOCKED, emptySet()) ?: emptySet()
 
+    fun saveBlockedDomains(domains: Set<String>) =
+        prefs.edit().putStringSet(KEY_DOMAINS, domains).apply()
+
+    fun blockedDomains(): Set<String> = prefs.getStringSet(KEY_DOMAINS, emptySet()) ?: emptySet()
+
     fun api() = Api(baseUrl, deviceToken)
 
     private companion object {
@@ -45,5 +50,6 @@ class Store(context: Context) {
         const val KEY_CHILD = "child_name"
         const val KEY_LAST_REPORT = "last_reported_at"
         const val KEY_LOCKED = "locked_packages"
+        const val KEY_DOMAINS = "blocked_domains"
     }
 }
