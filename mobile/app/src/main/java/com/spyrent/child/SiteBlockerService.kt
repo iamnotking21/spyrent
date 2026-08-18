@@ -140,7 +140,7 @@ class SiteBlockerService : AccessibilityService() {
         lastBlockedAt = now
 
         performGlobalAction(GLOBAL_ACTION_BACK)
-        LockActivity.show(this, domain, LockActivity.KIND_SITE)
+        Lock.show(this, domain, LockActivity.KIND_SITE)
     }
 
     /**

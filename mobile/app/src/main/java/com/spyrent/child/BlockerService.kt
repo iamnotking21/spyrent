@@ -50,16 +50,21 @@ class BlockerService : Service() {
                 runCatching {
                     if (Usage.hasPermission(this@BlockerService)) {
                         val current = Usage.foregroundPackage(this@BlockerService)
-                        if (current.isNotBlank() &&
+                        val locked = current.isNotBlank() &&
                             current != packageName &&
                             store.lockedPackages().contains(current)
-                        ) {
-                            LockActivity.show(
+
+                        if (locked) {
+                            Lock.show(
                                 this@BlockerService,
                                 Usage.label(this@BlockerService, current),
                                 LockActivity.KIND_BUDGET,
                                 current,
                             )
+                        } else if (LockOverlay.isShowing && current != packageName) {
+                            // the child left the locked app, so take the overlay
+                            // down rather than covering whatever they moved to
+                            LockOverlay.hide(this@BlockerService)
                         }
                     }
                 }

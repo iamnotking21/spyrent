@@ -32,6 +32,9 @@ class MainActivity : AppCompatActivity() {
         binding.sitesButton.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
+        binding.overlayButton.setOnClickListener {
+            startActivity(LockOverlay.permissionIntent(this))
+        }
         binding.unpairButton.setOnClickListener { unpair() }
     }
 
@@ -56,6 +59,11 @@ class MainActivity : AppCompatActivity() {
         val needsSites = paired && hasSiteRules && !siteBlockingOn()
         binding.sitesButton.visibility = if (needsSites) android.view.View.VISIBLE else android.view.View.GONE
         binding.sitesHint.visibility = if (needsSites) android.view.View.VISIBLE else android.view.View.GONE
+
+        // without this the limits are counted but the stop screen never appears
+        val needsOverlay = paired && !LockOverlay.canShow(this)
+        binding.overlayButton.visibility = if (needsOverlay) android.view.View.VISIBLE else android.view.View.GONE
+        binding.overlayHint.visibility = if (needsOverlay) android.view.View.VISIBLE else android.view.View.GONE
 
         val needsUsage = !Usage.hasPermission(this)
         binding.usageButton.visibility = if (needsUsage) android.view.View.VISIBLE else android.view.View.GONE
