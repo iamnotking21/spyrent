@@ -79,3 +79,13 @@ node scripts/simulate-device.mjs <deviceToken> https://spyrent.vercel.app
 ```
 
 The token comes from the seed output or the Pairing card on any child page.
+
+## Tests
+
+```bash
+npm test
+```
+
+Runs account-creation checks against the database in `DATABASE_URL` — validation, bcrypt
+storage, and duplicate username/email handling. Every row it creates is deleted afterwards.
+Point it at a branch database if you would rather not touch production data.

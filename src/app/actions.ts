@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { db, users, children, rules, auditLog } from "@/db";
 import { hashPassword, login, destroySession, getSession } from "@/lib/auth";
 import { requireUser, requireAdmin } from "@/lib/guard";
+import { createParentAccount } from "@/lib/accounts";
 import { randomToken } from "@/lib/utils";
 
 type State = { error?: string } | undefined;
@@ -22,30 +23,19 @@ export async function loginAction(_: State, form: FormData): Promise<State> {
 
 export async function registerAction(_: State, form: FormData): Promise<State> {
   const get = (k: string) => String(form.get(k) ?? "").trim();
-  const username = get("username");
-  const email = get("email").toLowerCase();
-  const firstName = get("firstName");
-  const lastName = get("lastName");
   const password = String(form.get("password") ?? "");
 
-  if (!username || !email || !firstName || !lastName) return { error: "All fields are required." };
-  if (password.length < 8) return { error: "Password needs at least 8 characters." };
-
-  const clash = await db.select({ id: users.id }).from(users).where(eq(users.username, username));
-  if (clash.length) return { error: "That username is taken." };
-  const clashMail = await db.select({ id: users.id }).from(users).where(eq(users.email, email));
-  if (clashMail.length) return { error: "That email is already registered." };
-
-  await db.insert(users).values({
-    username,
-    email,
-    firstName,
-    lastName,
-    passwordHash: await hashPassword(password),
-    role: "parent",
+  const result = await createParentAccount({
+    username: get("username"),
+    email: get("email"),
+    firstName: get("firstName"),
+    lastName: get("lastName"),
+    password,
   });
 
-  await login(username, password);
+  if (!result.ok) return { error: result.error };
+
+  await login(get("username"), password);
   redirect("/portal");
 }
 
