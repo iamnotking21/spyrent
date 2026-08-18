@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">ChildApp</string>
+    <string name="Exit">Exit</string>
+    <string name="block">this website is blocked</string>
+</resources>

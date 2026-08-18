@@ -1,0 +1,15 @@
+node_modules
+.next
+out
+.env
+.env*.local
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# legacy android build junk
+study/**/build/
+study/**/.gradle/
+study/**/.idea/
+study/**/*.iml
+study/**/local.properties

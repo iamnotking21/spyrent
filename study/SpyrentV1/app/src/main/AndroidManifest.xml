@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.spyrentv1">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity android:name="com.example.spyrentv1.custom_popup"></activity>
+        <activity android:name="com.example.spyrentv1.childlista" />
+        <activity android:name="com.example.spyrentv1.batalist" />
+
+        <receiver
+            android:name="com.example.spyrentv1.checkInternetconnections"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+                <action android:name="android.net.wifi.WIFI_STATE_CHANGED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <activity android:name="com.example.spyrentv1.ForgetPass" />
+        <activity android:name="com.example.spyrentv1.ForgPass2" />
+        <activity android:name="com.example.spyrentv1.Blockapp" />
+        <activity android:name="com.example.spyrentv1.BlockSite" />
+        <activity android:name="com.example.spyrentv1.ChildInfo" />
+        <activity android:name="com.example.spyrentv1.Creg" />
+        <activity
+            android:name="com.example.spyrentv1.Parent_panel"
+            android:label="@string/title_activity_parent_panel"
+            android:theme="@style/AppTheme.NoActionBar" />
+        <activity android:name="com.example.spyrentv1.Register" />
+        <activity android:name="com.example.spyrentv1.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name="com.example.spyrentv1.ChildsList" />
+        <activity android:name="com.example.spyrentv1.content" />
+        <activity android:name="com.example.spyrentv1.history_app" />
+        <activity android:name=".history_sites" />
+    </application>
+
+</manifest>

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="300dp"
+    android:orientation="vertical"
+    android:layout_height="425dp"
+    android:layout_gravity="center"
+    android:background="@drawable/background"
+    tools:context="com.example.spyrentv1.Creg">
+
+    <TextView
+        android:id="@+id/close"
+        android:layout_width="40dp"
+        android:layout_height="37dp"
+        android:layout_gravity="end"
+        android:gravity="center"
+        android:text="X"
+        android:textColor="@color/item2"
+        android:textSize="20dp"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/imageView6"
+        android:layout_width="260dp"
+        android:layout_height="108dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="10dp"
+        app:srcCompat="@drawable/register_child" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/cname"
+        android:layout_width="218dp"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:theme="@style/TextLabels"
+        android:layout_gravity="center"
+        >
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Child's Name" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/chpass"
+        android:layout_width="218dp"
+        android:layout_height="50dp"
+        android:layout_marginTop="10dp"
+        android:theme="@style/TextLabels"
+        android:layout_gravity="center">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:password="true"
+            android:hint="Password" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <Button
+        android:id="@+id/addchild"
+        android:layout_width="177dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/rdb"
+        android:text="Submit"
+        android:textSize="20dp"
+        android:textStyle="bold" />
+
+
+</LinearLayout>

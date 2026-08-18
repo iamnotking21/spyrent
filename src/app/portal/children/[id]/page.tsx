@@ -1,0 +1,204 @@
+import { notFound } from "next/navigation";
+import { desc, eq } from "drizzle-orm";
+import { db, children, rules, apps, events } from "@/db";
+import { requireUser } from "@/lib/guard";
+import {
+  upsertRuleAction,
+  deleteRuleAction,
+  rotateTokenAction,
+  removeChildAction,
+} from "@/app/actions";
+import { ActionForm, Field } from "@/components/forms";
+import { Badge, SectionTitle } from "@/components/ui";
+import { fmtDate, fmtMinutes } from "@/lib/utils";
+
+export default async function ChildPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const childId = Number(id);
+  const s = await requireUser();
+
+  const [child] = await db.select().from(children).where(eq(children.id, childId)).limit(1);
+  if (!child) notFound();
+  if (s.role !== "admin" && child.parentId !== s.uid) notFound();
+
+  const [ruleRows, appRows, eventRows] = await Promise.all([
+    db.select().from(rules).where(eq(rules.childId, childId)).orderBy(desc(rules.createdAt)),
+    db.select().from(apps).where(eq(apps.childId, childId)).orderBy(desc(apps.seenAt)).limit(60),
+    db
+      .select()
+      .from(events)
+      .where(eq(events.childId, childId))
+      .orderBy(desc(events.occurredAt))
+      .limit(25),
+  ]);
+
+  const appRules = ruleRows.filter((r) => r.kind === "app");
+  const siteRules = ruleRows.filter((r) => r.kind === "site");
+
+  return (
+    <div className="space-y-10">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold">{child.name}</h1>
+          <p className="text-ink-700 mt-1">Last seen {fmtDate(child.lastSeenAt)}</p>
+        </div>
+        <form action={removeChildAction}>
+          <input type="hidden" name="childId" value={child.id} />
+          <button className="btn btn-ghost text-rose-ink">Remove child</button>
+        </form>
+      </div>
+
+      <div className="card p-6">
+        <SectionTitle
+          title="Pairing"
+          hint="Type this token into the Spyrent app on the child device."
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <code className="rounded-xl bg-paper px-4 py-2.5 font-mono text-sm">
+            {child.deviceToken}
+          </code>
+          <form action={rotateTokenAction}>
+            <input type="hidden" name="childId" value={child.id} />
+            <button className="btn btn-ghost">Generate new token</button>
+          </form>
+        </div>
+      </div>
+
+      <section className="grid lg:grid-cols-2 gap-6 items-start">
+        <div className="card p-6">
+          <SectionTitle title="App limits" hint="Leave minutes empty to block the app outright." />
+          <ActionForm action={upsertRuleAction} submitLabel="Save app rule">
+            <input type="hidden" name="childId" value={child.id} />
+            <input type="hidden" name="kind" value="app" />
+            <div>
+              <label className="label" htmlFor="target">
+                App
+              </label>
+              {appRows.length ? (
+                <select id="target" name="target" className="input" required>
+                  {appRows.map((a) => (
+                    <option key={a.id} value={a.packageName}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="target"
+                  name="target"
+                  className="input"
+                  placeholder="com.roblox.client"
+                  required
+                />
+              )}
+            </div>
+            <Field
+              label="Daily minutes"
+              name="dailyMinutes"
+              type="number"
+              placeholder="60"
+              required={false}
+            />
+          </ActionForm>
+
+          <ul className="mt-6 space-y-2">
+            {appRules.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-3 rounded-xl bg-paper px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{r.label ?? r.target}</p>
+                  <p className="text-xs text-ink-500 truncate">{r.target}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {r.dailyMinutes === null ? (
+                    <Badge tone="rose">blocked</Badge>
+                  ) : (
+                    <Badge tone="amber">
+                      {fmtMinutes(r.usedMinutes)} / {fmtMinutes(r.dailyMinutes)}
+                    </Badge>
+                  )}
+                  <form action={deleteRuleAction}>
+                    <input type="hidden" name="ruleId" value={r.id} />
+                    <button className="text-sm text-ink-500 hover:text-rose-ink">Remove</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+            {appRules.length === 0 ? (
+              <li className="text-sm text-ink-500">No app rules yet.</li>
+            ) : null}
+          </ul>
+        </div>
+
+        <div className="card p-6">
+          <SectionTitle title="Blocked sites" hint="One domain per rule, e.g. tiktok.com." />
+          <ActionForm action={upsertRuleAction} submitLabel="Block site">
+            <input type="hidden" name="childId" value={child.id} />
+            <input type="hidden" name="kind" value="site" />
+            <Field label="Domain" name="target" placeholder="tiktok.com" />
+            <Field
+              label="Daily minutes"
+              name="dailyMinutes"
+              type="number"
+              placeholder="empty = block"
+              required={false}
+            />
+          </ActionForm>
+
+          <ul className="mt-6 space-y-2">
+            {siteRules.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-3 rounded-xl bg-paper px-4 py-3"
+              >
+                <p className="font-semibold truncate">{r.target}</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  {r.dailyMinutes === null ? (
+                    <Badge tone="rose">blocked</Badge>
+                  ) : (
+                    <Badge tone="amber">{fmtMinutes(r.dailyMinutes)}/day</Badge>
+                  )}
+                  <form action={deleteRuleAction}>
+                    <input type="hidden" name="ruleId" value={r.id} />
+                    <button className="text-sm text-ink-500 hover:text-rose-ink">Remove</button>
+                  </form>
+                </div>
+              </li>
+            ))}
+            {siteRules.length === 0 ? (
+              <li className="text-sm text-ink-500">Nothing blocked yet.</li>
+            ) : null}
+          </ul>
+        </div>
+      </section>
+
+      <section className="card p-6">
+        <SectionTitle title="Recent activity" hint="Newest first, straight from the device." />
+        {eventRows.length === 0 ? (
+          <p className="text-sm text-ink-500">Nothing reported yet.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {eventRows.map((e) => (
+              <li key={e.id} className="py-3 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{e.label ?? e.target}</p>
+                  <p className="text-xs text-ink-500">{fmtDate(e.occurredAt)}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge tone="muted">{e.kind}</Badge>
+                  {e.blocked ? (
+                    <Badge tone="rose">blocked</Badge>
+                  ) : (
+                    <Badge>{fmtMinutes(e.minutes)}</Badge>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}

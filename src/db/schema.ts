@@ -1,0 +1,143 @@
+import {
+  pgTable,
+  serial,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  uniqueIndex,
+  index,
+  pgEnum,
+} from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+
+export const roleEnum = pgEnum("role", ["admin", "parent"]);
+export const ruleKindEnum = pgEnum("rule_kind", ["app", "site"]);
+export const eventKindEnum = pgEnum("event_kind", ["app", "site"]);
+
+/** Parent + admin accounts. */
+export const users = pgTable(
+  "users",
+  {
+    id: serial("id").primaryKey(),
+    username: text("username").notNull(),
+    email: text("email").notNull(),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    role: roleEnum("role").notNull().default("parent"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("users_username_idx").on(t.username),
+    uniqueIndex("users_email_idx").on(t.email),
+  ],
+);
+
+/** Child profile; one per monitored device. */
+export const children = pgTable(
+  "children",
+  {
+    id: serial("id").primaryKey(),
+    parentId: integer("parent_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    deviceToken: text("device_token").notNull(),
+    deviceModel: text("device_model"),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("children_parent_name_idx").on(t.parentId, t.name),
+    uniqueIndex("children_token_idx").on(t.deviceToken),
+  ],
+);
+
+/** Apps discovered on the child device. */
+export const apps = pgTable(
+  "apps",
+  {
+    id: serial("id").primaryKey(),
+    childId: integer("child_id")
+      .notNull()
+      .references(() => children.id, { onDelete: "cascade" }),
+    packageName: text("package_name").notNull(),
+    label: text("label").notNull(),
+    sizeBytes: integer("size_bytes"),
+    seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("apps_child_pkg_idx").on(t.childId, t.packageName)],
+);
+
+/**
+ * Block/allow rules. kind=app -> target is package name.
+ * kind=site -> target is a domain. dailyMinutes null = hard block.
+ */
+export const rules = pgTable(
+  "rules",
+  {
+    id: serial("id").primaryKey(),
+    childId: integer("child_id")
+      .notNull()
+      .references(() => children.id, { onDelete: "cascade" }),
+    kind: ruleKindEnum("kind").notNull(),
+    target: text("target").notNull(),
+    label: text("label"),
+    dailyMinutes: integer("daily_minutes"),
+    usedMinutes: integer("used_minutes").notNull().default(0),
+    windowStart: text("window_start"),
+    windowEnd: text("window_end"),
+    blocked: boolean("blocked").notNull().default(true),
+    resetOn: text("reset_on"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("rules_child_kind_target_idx").on(t.childId, t.kind, t.target)],
+);
+
+/** Usage log pushed by the child device. */
+export const events = pgTable(
+  "events",
+  {
+    id: serial("id").primaryKey(),
+    childId: integer("child_id")
+      .notNull()
+      .references(() => children.id, { onDelete: "cascade" }),
+    kind: eventKindEnum("kind").notNull(),
+    target: text("target").notNull(),
+    label: text("label"),
+    minutes: integer("minutes").notNull().default(0),
+    blocked: boolean("blocked").notNull().default(false),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("events_child_time_idx").on(t.childId, t.occurredAt)],
+);
+
+/** Admin-visible audit trail. */
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
+  actorId: integer("actor_id").references(() => users.id, { onDelete: "set null" }),
+  action: text("action").notNull(),
+  detail: text("detail"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const usersRelations = relations(users, ({ many }) => ({
+  children: many(children),
+}));
+
+export const childrenRelations = relations(children, ({ one, many }) => ({
+  parent: one(users, { fields: [children.parentId], references: [users.id] }),
+  apps: many(apps),
+  rules: many(rules),
+  events: many(events),
+}));
+
+export type User = typeof users.$inferSelect;
+export type Child = typeof children.$inferSelect;
+export type Rule = typeof rules.$inferSelect;
+export type AppRow = typeof apps.$inferSelect;
+export type EventRow = typeof events.$inferSelect;
