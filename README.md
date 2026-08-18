@@ -100,6 +100,8 @@ npm test
 - `tests/accounts.test.mjs` — validation, bcrypt storage, duplicate username and email
 - `tests/isolation.test.mjs` — one parent cannot read another parent's children, rules or
   activity; a device token only ever returns its own child
+- `tests/ratelimit.test.mjs` — sign-in lockout after repeated failures, window expiry, and that
+  one address cannot lock a stranger out of their account
 - `tests/session.test.mjs` — disabling or deleting an account ends its live session; forged
   and wrongly-signed cookies are refused
 
@@ -115,4 +117,6 @@ Point them at a Neon branch if you would rather not touch production data.
   from a layout runs too late: the redirect response still carries the rendered HTML.
 - `AUTH_SECRET` and `DATABASE_URL` are required at boot in production (`src/lib/env.ts`).
   There is no fallback secret outside development.
-- Rate limiting on sign-in is **not** implemented yet — worth adding before real users.
+- Sign-in is throttled: eight failures against the same username-and-address pair lock it for
+  fifteen minutes. The counter lives in Postgres, not in memory — serverless instances do not
+  share memory, so an in-process map would reset on every cold start and throttle nothing.

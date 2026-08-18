@@ -116,6 +116,23 @@ export const events = pgTable(
   (t) => [index("events_child_time_idx").on(t.childId, t.occurredAt)],
 );
 
+/**
+ * Failed sign-in counter. Lives in the database rather than in memory because
+ * serverless instances do not share memory — an in-process map would reset on
+ * every cold start and throttle nothing.
+ */
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    id: serial("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("login_attempts_identifier_idx").on(t.identifier)],
+);
+
 /** Admin-visible audit trail. */
 export const auditLog = pgTable("audit_log", {
   id: serial("id").primaryKey(),

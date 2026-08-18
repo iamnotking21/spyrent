@@ -1,12 +1,19 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db, users, children, rules, auditLog } from "@/db";
 import { hashPassword, login, destroySession, getSession } from "@/lib/auth";
 import { requireUser, requireAdmin } from "@/lib/guard";
 import { createParentAccount } from "@/lib/accounts";
+import {
+  checkLoginAllowed,
+  clearLoginFailures,
+  clientIp,
+  recordLoginFailure,
+} from "@/lib/rate-limit";
 import { randomToken } from "@/lib/utils";
 
 type State = { error?: string } | undefined;
@@ -16,8 +23,24 @@ export async function loginAction(_: State, form: FormData): Promise<State> {
   const password = String(form.get("password") ?? "");
   if (!username || !password) return { error: "Fill in both fields." };
 
+  // key on username *and* address, so one noisy network cannot lock a
+  // stranger out of their own account
+  const ip = clientIp(await headers());
+  const key = `${username.toLowerCase()}|${ip}`;
+
+  const throttle = await checkLoginAllowed(key);
+  if (!throttle.allowed) {
+    const minutes = Math.ceil(throttle.retryAfterSeconds / 60);
+    return { error: `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.` };
+  }
+
   const s = await login(username, password);
-  if (!s) return { error: "Wrong username or password." };
+  if (!s) {
+    await recordLoginFailure(key);
+    return { error: "Wrong username or password." };
+  }
+
+  await clearLoginFailures(key);
   redirect(s.role === "admin" ? "/admin" : "/portal");
 }
 

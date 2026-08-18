@@ -8,6 +8,13 @@
       "when": 1787032133912,
       "tag": "0000_demonic_pixie",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787042331003,
+      "tag": "0001_burly_wong",
+      "breakpoints": true
     }
   ]
 }
