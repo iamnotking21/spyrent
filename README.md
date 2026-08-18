@@ -57,9 +57,11 @@ admin actions. Parents see their own entries on the child page; admins see all o
 
 ## Legacy
 
-The original Android sources stay under `study/` for reference: `SpyrentV1` (parent app) and
-`ChildApp` (child app), both talking to `spyrent.online/res_api/*.php`.
-`.claude/agents/spyrent-android.md` holds the old-endpoint → new-endpoint mapping.
+The original stack was two Android apps talking to `spyrent.online/res_api/*.php`. Both are
+gone from the working tree — they were unbuildable on a modern JDK and nothing depends on them
+any more. They remain in git history at commit `9c35419` if the old behaviour ever needs
+checking, and `.claude/agents/spyrent-android.md` still holds the old-endpoint to new-endpoint
+mapping.
 
 ## Deploy
 

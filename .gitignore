@@ -7,9 +7,4 @@ out
 *.tsbuildinfo
 next-env.d.ts
 
-# legacy android build junk
-study/**/build/
-study/**/.gradle/
-study/**/.idea/
-study/**/*.iml
-study/**/local.properties
+.idea/

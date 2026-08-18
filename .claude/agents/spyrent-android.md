@@ -1,6 +1,6 @@
 ---
 name: spyrent-android
-description: Bridge the legacy Android apps in study/ (ChildApp, SpyrentV1) onto the new /api/v1 endpoints. Use when porting a legacy PHP call or reading old behaviour.
+description: Maps the retired PHP endpoints onto the new /api/v1 contract. Use when checking what an old res_api call used to do. The legacy sources were deleted and live in git history at 9c35419.
 tools: Read, Grep, Glob
 model: sonnet
 ---
@@ -17,5 +17,8 @@ Mapping (old -> new):
 - del_have_timer.php, del_post_walang_timer.php, del_parentid.php -> portal rule delete, no device endpoint
 
 Legacy fields: `oras`/`mins` = hours/minutes budget -> single `dailyMinutes`. `eventstatus` -> `events.blocked`. `packname` -> `packageName`.
+
+The legacy apps are no longer in the working tree; recover them from commit `9c35419` if a
+detail is missing here.
 
 Read-only agent. Report the mapping and the exact JSON body the device should send.

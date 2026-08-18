@@ -6,7 +6,7 @@ Next.js 15 App Router. Neon Postgres via Drizzle. Vercel. Free tier only — nev
 - `src/app/(marketing)` public site · `src/app/portal` parent · `src/app/admin` admin · `src/app/api/v1` device API
 - `src/db/schema.ts` single source of truth · `src/lib/auth.ts` session · `src/lib/guard.ts` route guards · `src/lib/device.ts` device auth
 - `src/components/ui.tsx` primitives · `src/components/forms.tsx` `ActionForm` + `Field`
-- `study/` legacy Android reference. Read-only. Do not build it.
+- `mobile/` Android child app (Kotlin). The legacy apps were deleted; they live in git history at `9c35419`.
 
 ## Rules
 - Child data always filtered by `parentId` (parent) — admin bypass only via `requireAdmin`.
