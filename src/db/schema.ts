@@ -138,6 +138,22 @@ export const loginAttempts = pgTable(
   (t) => [uniqueIndex("login_attempts_identifier_idx").on(t.identifier)],
 );
 
+/** A browser that has agreed to receive push notifications for this parent. */
+export const pushSubscriptions = pgTable(
+  "push_subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint)],
+);
+
 /**
  * A child asking for more time on an app. The parent answers from the portal;
  * granting adds the minutes straight onto the rule budget.

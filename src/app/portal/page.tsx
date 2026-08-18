@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/guard";
 import { addChildAction } from "@/app/actions";
 import { ActionForm, Field } from "@/components/forms";
 import { Badge, Empty, Stat } from "@/components/ui";
+import { PushToggle } from "@/components/push-toggle";
 import { fmtDate, fmtMinutes } from "@/lib/utils";
 
 export default async function PortalHome() {
@@ -75,6 +76,9 @@ export default async function PortalHome() {
           )}
         </div>
 
+        <div className="space-y-6">
+        <PushToggle vapidKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""} />
+
         <div className="card p-6">
           <h2 className="text-lg font-bold">Add a child</h2>
           <p className="text-sm text-ink-500 mt-1 mb-5">
@@ -84,6 +88,7 @@ export default async function PortalHome() {
             <Field label="Name" name="name" placeholder="Mia" />
             <Field label="Device PIN" name="password" type="password" placeholder="4+ characters" />
           </ActionForm>
+        </div>
         </div>
       </section>
     </div>

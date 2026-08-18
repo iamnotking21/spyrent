@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db, rules, timeRequests } from "@/db";
+import { db, rules, timeRequests, children } from "@/db";
 import { authDevice, fail, json } from "@/lib/device";
+import { notifyUser } from "@/lib/push";
 
 /** The device asks for more time on one app. */
 export async function POST(req: Request) {
@@ -43,6 +44,21 @@ export async function POST(req: Request) {
       minutes,
     })
     .returning();
+
+  // best effort: a parent without notifications still sees it in the portal
+  const [child] = await db
+    .select({ parentId: children.parentId, name: children.name })
+    .from(children)
+    .where(eq(children.id, c.id))
+    .limit(1);
+
+  if (child) {
+    await notifyUser(child.parentId, {
+      title: `${child.name} is asking for more time`,
+      body: `${created.label ?? target} — ${minutes} more minutes`,
+      url: `/portal/children/${c.id}`,
+    }).catch(() => 0);
+  }
 
   return json({ ok: true, status: "pending", requestId: created.id });
 }

@@ -102,6 +102,8 @@ npm test
 - `tests/accounts.test.mjs` — validation, bcrypt storage, duplicate username and email
 - `tests/requests.test.mjs` — asking for more time, one open request per app, and that a
   granted bonus expires overnight instead of raising the limit for good
+- `tests/push.test.mjs` — every device of the right parent is notified, nobody else is, and a
+  subscription the push service reports as gone is dropped rather than retried forever
 - `tests/isolation.test.mjs` — one parent cannot read another parent's children, rules or
   activity; a device token only ever returns its own child
 - `tests/cron.test.mjs` — the daily budget reset clears spent minutes once, refuses an
@@ -134,6 +136,21 @@ timezone-aware.
 - Sign-in is throttled: eight failures against the same username-and-address pair lock it for
   fifteen minutes. The counter lives in Postgres, not in memory — serverless instances do not
   share memory, so an in-process map would reset on every cold start and throttle nothing.
+
+## Notifications
+
+Parents can turn on browser notifications from the portal, so a request reaches them without
+having to look. This is the Web Push standard with VAPID keys you generate yourself — no
+Firebase, no account, nothing to pay for:
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Put the pair in `NEXT_PUBLIC_VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`. Without them the
+toggle simply does not appear and requests still show up in the portal.
+
+Works in Chrome, Firefox and Edge, and on iOS 16.4+ once the site is added to the home screen.
 
 ## Asking for more time
 

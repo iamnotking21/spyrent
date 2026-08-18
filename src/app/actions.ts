@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
-import { db, users, children, rules, auditLog, timeRequests } from "@/db";
+import { db, users, children, rules, auditLog, timeRequests, pushSubscriptions } from "@/db";
 import { hashPassword, login, destroySession, getSession } from "@/lib/auth";
 import { requireUser, requireAdmin } from "@/lib/guard";
 import { createParentAccount } from "@/lib/accounts";
@@ -271,5 +271,44 @@ export async function answerRequestAction(form: FormData) {
   }
 
   revalidatePath(`/portal/children/${request.childId}`);
+  revalidatePath("/portal");
+}
+
+export async function savePushSubscriptionAction(_: State, form: FormData): Promise<State> {
+  const s = await requireUser();
+  const raw = String(form.get("subscription") ?? "");
+
+  let parsed: { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: "That subscription did not make sense." };
+  }
+
+  if (!parsed.endpoint || !parsed.keys?.p256dh || !parsed.keys?.auth) {
+    return { error: "That subscription is missing its keys." };
+  }
+
+  await db
+    .insert(pushSubscriptions)
+    .values({
+      userId: s.uid,
+      endpoint: parsed.endpoint,
+      p256dh: parsed.keys.p256dh,
+      auth: parsed.keys.auth,
+    })
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      set: { userId: s.uid, p256dh: parsed.keys.p256dh, auth: parsed.keys.auth },
+    });
+
+  return { notice: "Notifications are on for this device." };
+}
+
+export async function removePushSubscriptionAction(form: FormData) {
+  await requireUser();
+  const endpoint = String(form.get("endpoint") ?? "");
+  if (!endpoint) return;
+  await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
   revalidatePath("/portal");
 }
