@@ -16,12 +16,18 @@ export async function GET(req: Request) {
       .filter((r) => r.kind === "app")
       .map((r) => ({
         packageName: r.target,
+        label: r.label ?? r.target,
         dailyMinutes: r.dailyMinutes,
         usedMinutes: r.usedMinutes,
         blocked: r.blocked,
       })),
     sites: rows
       .filter((r) => r.kind === "site")
-      .map((r) => ({ domain: r.target, dailyMinutes: r.dailyMinutes, blocked: r.blocked })),
+      .map((r) => ({
+        domain: r.target,
+        label: r.label ?? r.target,
+        dailyMinutes: r.dailyMinutes,
+        blocked: r.blocked,
+      })),
   });
 }

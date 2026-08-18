@@ -1,0 +1,7 @@
+<resources>
+    <color name="brand">#0F8A72</color>
+    <color name="paper">#FAF9F6</color>
+    <color name="ink">#1F2933</color>
+    <color name="muted">#6B7A8C</color>
+    <color name="surface">#FFFFFF</color>
+</resources>
