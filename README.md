@@ -67,3 +67,15 @@ See `.claude/skills/spyrent-deploy/SKILL.md`. Short version: import the repo on 
 
 `.claude/agents/` — `spyrent-db`, `spyrent-api`, `spyrent-ui`, `spyrent-android`.
 `.claude/skills/` — `spyrent-feature` (vertical slice workflow), `spyrent-deploy`.
+
+## Demo without an Android device
+
+`scripts/simulate-device.mjs` speaks the same API as the child app: it pairs, uploads an app
+inventory, then reports usage on a loop so the portal moves while you talk.
+
+```bash
+node scripts/simulate-device.mjs <deviceToken>
+node scripts/simulate-device.mjs <deviceToken> https://spyrent.vercel.app
+```
+
+The token comes from the seed output or the Pairing card on any child page.
