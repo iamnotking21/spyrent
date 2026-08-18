@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
-import { db, children, rules, apps, events, timeRequests } from "@/db";
+import { db, children, rules, apps, events, timeRequests, auditLog } from "@/db";
 import { requireUser } from "@/lib/guard";
 import {
   upsertRuleAction,
@@ -12,6 +12,9 @@ import {
 import { ActionForm, Field } from "@/components/forms";
 import { Badge, SectionTitle } from "@/components/ui";
 import { fmtDate, fmtMinutes } from "@/lib/utils";
+import { describe } from "@/lib/audit";
+import { weekFor } from "@/lib/week";
+import { WeekChart } from "@/components/week-chart";
 
 export default async function ChildPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,7 +25,7 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   if (!child) notFound();
   if (s.role !== "admin" && child.parentId !== s.uid) notFound();
 
-  const [ruleRows, appRows, eventRows, requestRows] = await Promise.all([
+  const [ruleRows, appRows, eventRows, requestRows, auditRows] = await Promise.all([
     db.select().from(rules).where(eq(rules.childId, childId)).orderBy(desc(rules.createdAt)),
     db.select().from(apps).where(eq(apps.childId, childId)).orderBy(desc(apps.seenAt)).limit(60),
     db
@@ -36,7 +39,15 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
       .from(timeRequests)
       .where(and(eq(timeRequests.childId, childId), eq(timeRequests.status, "pending")))
       .orderBy(desc(timeRequests.createdAt)),
+    db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.childId, childId))
+      .orderBy(desc(auditLog.createdAt))
+      .limit(15),
   ]);
+
+  const week = await weekFor(childId, child.timezone);
 
   const appRules = ruleRows.filter((r) => r.kind === "app");
   const siteRules = ruleRows.filter((r) => r.kind === "site");
@@ -89,6 +100,11 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
           </ul>
         </section>
       ) : null}
+
+      <section className="card p-6">
+        <SectionTitle title="This week" hint="Screen time reported by the device, by day." />
+        <WeekChart days={week} />
+      </section>
 
       <div className="card p-6">
         <SectionTitle
@@ -220,6 +236,22 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
             ) : null}
           </ul>
         </div>
+      </section>
+
+      <section className="card p-6">
+        <SectionTitle title="Changes you made" hint="The last fifteen, newest first." />
+        {auditRows.length === 0 ? (
+          <p className="text-sm text-ink-500">Nothing changed yet.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {auditRows.map((a) => (
+              <li key={a.id} className="py-2.5 flex justify-between gap-4">
+                <p className="text-sm">{describe(a.action, a.detail)}</p>
+                <span className="text-xs text-ink-500 shrink-0">{fmtDate(a.createdAt)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="card p-6">

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
-import { db, users, children, rules, auditLog, timeRequests, pushSubscriptions } from "@/db";
+import { db, users, children, rules, timeRequests, pushSubscriptions } from "@/db";
 import { hashPassword, login, destroySession, getSession } from "@/lib/auth";
 import { requireUser, requireAdmin } from "@/lib/guard";
 import { createParentAccount } from "@/lib/accounts";
@@ -17,6 +17,7 @@ import {
   recordLoginFailure,
 } from "@/lib/rate-limit";
 import { randomToken } from "@/lib/utils";
+import { record } from "@/lib/audit";
 
 type State = { error?: string; notice?: string } | undefined;
 
@@ -82,12 +83,17 @@ export async function addChildAction(_: State, form: FormData): Promise<State> {
     .where(and(eq(children.parentId, s.uid), eq(children.name, name)));
   if (dupe.length) return { error: "You already have a child with that name." };
 
-  await db.insert(children).values({
-    parentId: s.uid,
-    name,
-    passwordHash: await hashPassword(password),
-    deviceToken: randomToken(16),
-  });
+  const [created] = await db
+    .insert(children)
+    .values({
+      parentId: s.uid,
+      name,
+      passwordHash: await hashPassword(password),
+      deviceToken: randomToken(16),
+    })
+    .returning();
+
+  await record({ actorId: s.uid, childId: created.id, action: "child.added", detail: name });
   revalidatePath("/portal");
   return undefined;
 }
@@ -104,6 +110,8 @@ export async function removeChildAction(form: FormData) {
   const childId = Number(form.get("childId"));
   const c = await ownChild(childId);
   if (!c) return;
+  const s = await requireUser();
+  await record({ actorId: s.uid, action: "child.removed", detail: c.name });
   await db.delete(children).where(eq(children.id, childId));
   revalidatePath("/portal");
 }
@@ -135,6 +143,14 @@ export async function upsertRuleAction(_: State, form: FormData): Promise<State>
       set: { dailyMinutes, blocked: dailyMinutes === null },
     });
 
+  const actor = await requireUser();
+  await record({
+    actorId: actor.uid,
+    childId,
+    action: dailyMinutes === null ? "rule.block" : "rule.set",
+    detail: dailyMinutes === null ? target : `${target} (${dailyMinutes} min)`,
+  });
+
   revalidatePath(`/portal/children/${childId}`);
   return undefined;
 }
@@ -145,6 +161,9 @@ export async function deleteRuleAction(form: FormData) {
   if (!r) return;
   const c = await ownChild(r.childId);
   if (!c) return;
+  const actor = await requireUser();
+  await record({ actorId: actor.uid, childId: r.childId, action: "rule.remove", detail: r.target });
+
   await db.delete(rules).where(eq(rules.id, ruleId));
   revalidatePath(`/portal/children/${r.childId}`);
 }
@@ -153,6 +172,9 @@ export async function rotateTokenAction(form: FormData) {
   const childId = Number(form.get("childId"));
   const c = await ownChild(childId);
   if (!c) return;
+  const actor = await requireUser();
+  await record({ actorId: actor.uid, childId, action: "child.token_rotated" });
+
   await db.update(children).set({ deviceToken: randomToken(16) }).where(eq(children.id, childId));
   revalidatePath(`/portal/children/${childId}`);
 }
@@ -162,7 +184,7 @@ export async function setUserActiveAction(form: FormData) {
   const userId = Number(form.get("userId"));
   const active = String(form.get("active")) === "true";
   await db.update(users).set({ active }).where(eq(users.id, userId));
-  await db.insert(auditLog).values({
+  await record({
     actorId: admin.uid,
     action: active ? "user.enable" : "user.disable",
     detail: `user #${userId}`,
@@ -223,11 +245,7 @@ export async function issueResetLinkAction(_: State, form: FormData): Promise<St
   const token = await beginPasswordReset(email);
   if (!token) return { error: "No active account with that email." };
 
-  await db.insert(auditLog).values({
-    actorId: admin.uid,
-    action: "user.reset_link",
-    detail: email,
-  });
+  await record({ actorId: admin.uid, action: "user.reset_link", detail: email });
 
   // shown once and never stored, so it cannot leak from the table later
   return { notice: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/reset/${token}` };
@@ -269,6 +287,14 @@ export async function answerRequestAction(form: FormData) {
         ),
       );
   }
+
+  const actor = await requireUser();
+  await record({
+    actorId: actor.uid,
+    childId: request.childId,
+    action: grant ? "request.granted" : "request.denied",
+    detail: `${request.label ?? request.target}${grant ? ` (+${request.minutes} min)` : ""}`,
+  });
 
   revalidatePath(`/portal/children/${request.childId}`);
   revalidatePath("/portal");

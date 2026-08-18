@@ -52,7 +52,8 @@ All device calls except pairing send `Authorization: Bearer <deviceToken>`.
 `users` (parent/admin) → `children` (one per device) → `apps`, `rules`, `events`.
 `rules.kind` is `app` (target = package name) or `site` (target = domain).
 `dailyMinutes = null` means a hard block; otherwise it is a daily budget tracked in `usedMinutes`.
-`audit_log` records admin actions.
+`audit_log` records who changed what — rules, children, pairing codes, answered requests and
+admin actions. Parents see their own entries on the child page; admins see all of them.
 
 ## Legacy
 
@@ -104,6 +105,8 @@ npm test
   granted bonus expires overnight instead of raising the limit for good
 - `tests/push.test.mjs` — every device of the right parent is notified, nobody else is, and a
   subscription the push service reports as gone is dropped rather than retried forever
+- `tests/audit.test.mjs` — changes are recorded against the right child, read as plain
+  sentences, never take an action down with them, and stay private to that parent
 - `tests/isolation.test.mjs` — one parent cannot read another parent's children, rules or
   activity; a device token only ever returns its own child
 - `tests/cron.test.mjs` — the daily budget reset clears spent minutes once, refuses an

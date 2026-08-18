@@ -196,13 +196,19 @@ export const passwordResets = pgTable(
 );
 
 /** Admin-visible audit trail. */
-export const auditLog = pgTable("audit_log", {
-  id: serial("id").primaryKey(),
-  actorId: integer("actor_id").references(() => users.id, { onDelete: "set null" }),
-  action: text("action").notNull(),
-  detail: text("detail"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: serial("id").primaryKey(),
+    actorId: integer("actor_id").references(() => users.id, { onDelete: "set null" }),
+    /** Set when the entry concerns one child, so a parent can see their own history. */
+    childId: integer("child_id").references(() => children.id, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    detail: text("detail"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("audit_log_child_idx").on(t.childId, t.createdAt)],
+);
 
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
