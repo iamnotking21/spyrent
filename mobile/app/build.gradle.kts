@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -13,13 +15,48 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        buildConfigField("String", "DEFAULT_BASE_URL", "\"https://spyrent.vercel.app\"")
+        // overridable at build time: -PspyrentBaseUrl=https://your-deployment
+        buildConfigField(
+            "String",
+            "DEFAULT_BASE_URL",
+            "\"" + (project.findProperty("spyrentBaseUrl") ?: "https://spyrent-beta.vercel.app") + "\"",
+        )
+    }
+
+    // Release signing is driven by keystore.properties, or by the matching
+    // environment variables in CI. Neither the file nor the passwords belong in
+    // the repository — keystore.properties is gitignored.
+    val keystoreProperties = Properties().apply {
+        val file = rootProject.file("keystore.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+    }
+
+    fun secret(key: String, env: String): String? =
+        keystoreProperties.getProperty(key) ?: System.getenv(env)
+
+    signingConfigs {
+        create("release") {
+            val storePath = secret("storeFile", "SPYRENT_KEYSTORE")
+            if (storePath != null) {
+                storeFile = file(storePath)
+                storePassword = secret("storePassword", "SPYRENT_KEYSTORE_PASSWORD")
+                keyAlias = secret("keyAlias", "SPYRENT_KEY_ALIAS")
+                keyPassword = secret("keyPassword", "SPYRENT_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+            // an unsigned release build is still useful for checking that
+            // minification did not break anything
+            if (secret("storeFile", "SPYRENT_KEYSTORE") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

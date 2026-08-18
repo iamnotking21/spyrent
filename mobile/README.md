@@ -72,3 +72,24 @@ adb shell appops set com.spyrent.child ACCESS_RESTRICTED_SETTINGS allow
 ```
 
 On a normally installed app the in-app button opens the right Settings screen.
+
+## Release builds
+
+```bash
+./gradlew assembleRelease
+```
+
+R8 is on for release, which takes the APK from roughly 7.7 MB to 1.9 MB.
+
+Signing is driven by `keystore.properties` (copy `keystore.properties.example`) or the
+matching environment variables — `SPYRENT_KEYSTORE`, `SPYRENT_KEYSTORE_PASSWORD`,
+`SPYRENT_KEY_ALIAS`, `SPYRENT_KEY_PASSWORD`. Without them the build still runs and produces
+an unsigned APK, which is enough to check that minification broke nothing. The keystore and
+its passwords are gitignored and should stay out of the repository entirely: losing that file
+means never being able to update an app already installed from it.
+
+The server the app points at by default is set at build time:
+
+```bash
+./gradlew assembleRelease -PspyrentBaseUrl=https://your-deployment.vercel.app
+```
