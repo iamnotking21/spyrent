@@ -82,10 +82,28 @@ The token comes from the seed output or the Pairing card on any child page.
 
 ## Tests
 
+Start the dev server first — two of the suites drive it over HTTP.
+
 ```bash
 npm test
 ```
 
-Runs account-creation checks against the database in `DATABASE_URL` — validation, bcrypt
-storage, and duplicate username/email handling. Every row it creates is deleted afterwards.
-Point it at a branch database if you would rather not touch production data.
+- `tests/accounts.test.mjs` — validation, bcrypt storage, duplicate username and email
+- `tests/isolation.test.mjs` — one parent cannot read another parent's children, rules or
+  activity; a device token only ever returns its own child
+- `tests/session.test.mjs` — disabling or deleting an account ends its live session; forged
+  and wrongly-signed cookies are refused
+
+They run against the database in `DATABASE_URL` and delete every row they create.
+Point them at a Neon branch if you would rather not touch production data.
+
+## Security notes
+
+- Sessions are JWTs in an httpOnly cookie, but `active` and `role` are read from the database
+  on every protected request. Disabling an account in the admin portal takes effect at once
+  rather than whenever the token happens to expire.
+- Protected routes are gated in `src/middleware.ts`, before rendering. A guard that redirects
+  from a layout runs too late: the redirect response still carries the rendered HTML.
+- `AUTH_SECRET` and `DATABASE_URL` are required at boot in production (`src/lib/env.ts`).
+  There is no fallback secret outside development.
+- Rate limiting on sign-in is **not** implemented yet — worth adding before real users.

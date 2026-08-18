@@ -2,13 +2,12 @@ import "server-only";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
+import { AUTH_SECRET } from "./env";
 import { db, users } from "@/db";
 import { eq } from "drizzle-orm";
 
 const COOKIE = "spyrent_session";
-const secret = new TextEncoder().encode(
-  process.env.AUTH_SECRET ?? "dev-only-insecure-secret-change-me-please",
-);
+const secret = new TextEncoder().encode(AUTH_SECRET);
 
 export type Session = { uid: number; role: "admin" | "parent"; name: string };
 
