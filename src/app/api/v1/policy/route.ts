@@ -1,11 +1,15 @@
 import { eq } from "drizzle-orm";
 import { db, rules } from "@/db";
 import { authDevice, fail, json } from "@/lib/device";
+import { rolloverIfNeeded } from "@/lib/budget";
 
 /** Full rule set the child device must enforce. */
 export async function GET(req: Request) {
   const c = await authDevice(req);
   if (!c) return fail("unauthorized", 401);
+
+  // a new day where the child lives means a clean slate
+  await rolloverIfNeeded(c);
 
   const rows = await db.select().from(rules).where(eq(rules.childId, c.id));
 

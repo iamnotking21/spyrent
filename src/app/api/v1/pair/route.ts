@@ -7,6 +7,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const token = String(body?.token ?? "").trim();
   const deviceModel = body?.deviceModel ? String(body.deviceModel) : null;
+  const timezone = body?.timezone ? String(body.timezone) : null;
   if (!token) return fail("token is required");
 
   const [c] = await db.select().from(children).where(eq(children.deviceToken, token)).limit(1);
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
 
   await db
     .update(children)
-    .set({ deviceModel, lastSeenAt: new Date() })
+    .set({ deviceModel, lastSeenAt: new Date(), ...(timezone ? { timezone } : {}) })
     .where(eq(children.id, c.id));
 
   return json({ ok: true, child: { id: c.id, name: c.name } });

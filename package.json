@@ -10,7 +10,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
-    "test": "tsx tests/accounts.test.mjs && tsx tests/ratelimit.test.mjs && tsx tests/cron.test.mjs && tsx tests/isolation.test.mjs && tsx tests/session.test.mjs"
+    "test": "tsx tests/accounts.test.mjs && tsx tests/reset.test.mjs && tsx tests/ratelimit.test.mjs && tsx tests/cron.test.mjs && tsx tests/isolation.test.mjs && tsx tests/session.test.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

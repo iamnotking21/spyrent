@@ -2,6 +2,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { db, users, children } from "@/db";
 import { setUserActiveAction } from "@/app/actions";
 import { Badge } from "@/components/ui";
+import { ResetLinkButton } from "@/components/reset-link";
 import { fmtDate } from "@/lib/utils";
 
 export default async function AdminUsers() {
@@ -60,13 +61,16 @@ export default async function AdminUsers() {
                   )}
                 </td>
                 <td className="px-5 py-3 text-right">
-                  <form action={setUserActiveAction}>
-                    <input type="hidden" name="userId" value={u.id} />
-                    <input type="hidden" name="active" value={String(!u.active)} />
-                    <button className="text-ink-500 hover:text-brand-700 font-medium">
-                      {u.active ? "Disable" : "Enable"}
-                    </button>
-                  </form>
+                  <div className="flex items-center justify-end gap-4">
+                    <ResetLinkButton email={u.email} />
+                    <form action={setUserActiveAction}>
+                      <input type="hidden" name="userId" value={u.id} />
+                      <input type="hidden" name="active" value={String(!u.active)} />
+                      <button className="text-ink-500 hover:text-brand-700 font-medium">
+                        {u.active ? "Disable" : "Enable"}
+                      </button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}

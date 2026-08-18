@@ -8,6 +8,8 @@ import { db, users, children, rules, auditLog } from "@/db";
 import { hashPassword, login, destroySession, getSession } from "@/lib/auth";
 import { requireUser, requireAdmin } from "@/lib/guard";
 import { createParentAccount } from "@/lib/accounts";
+import { beginPasswordReset, completePasswordReset } from "@/lib/password-reset";
+import { mailConfigured, sendResetEmail } from "@/lib/mail";
 import {
   checkLoginAllowed,
   clearLoginFailures,
@@ -16,7 +18,7 @@ import {
 } from "@/lib/rate-limit";
 import { randomToken } from "@/lib/utils";
 
-type State = { error?: string } | undefined;
+type State = { error?: string; notice?: string } | undefined;
 
 export async function loginAction(_: State, form: FormData): Promise<State> {
   const username = String(form.get("username") ?? "").trim();
@@ -172,3 +174,61 @@ export async function currentSession() {
   return getSession();
 }
 
+
+export async function requestResetAction(_: State, form: FormData): Promise<State> {
+  const email = String(form.get("email") ?? "").trim();
+  if (!email.includes("@")) return { error: "Type the email you signed up with." };
+
+  // throttled on the same counter as sign-in, so this cannot be used to
+  // hammer the mail service or to probe for registered addresses
+  const key = `reset:${email.toLowerCase()}|${clientIp(await headers())}`;
+  const throttle = await checkLoginAllowed(key);
+  if (!throttle.allowed) {
+    return { error: "Too many requests. Try again a little later." };
+  }
+  await recordLoginFailure(key);
+
+  const token = await beginPasswordReset(email);
+  if (token) {
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    await sendResetEmail(email, `${base}/reset/${token}`);
+  }
+
+  // the same answer whether or not the account exists
+  return {
+    notice: mailConfigured
+      ? "If that address has an account, a reset link is on its way."
+      : "Ask whoever administers your Spyrent to send you a reset link.",
+  };
+}
+
+export async function resetPasswordAction(_: State, form: FormData): Promise<State> {
+  const token = String(form.get("token") ?? "");
+  const password = String(form.get("password") ?? "");
+  const confirm = String(form.get("confirm") ?? "");
+
+  if (password !== confirm) return { error: "Those two passwords do not match." };
+
+  const result = await completePasswordReset(token, password);
+  if (!result.ok) return { error: result.error };
+
+  redirect("/login?reset=1");
+}
+
+/** Admin hands a parent a reset link when there is no outbound mail. */
+export async function issueResetLinkAction(_: State, form: FormData): Promise<State> {
+  const admin = await requireAdmin();
+  const email = String(form.get("email") ?? "");
+
+  const token = await beginPasswordReset(email);
+  if (!token) return { error: "No active account with that email." };
+
+  await db.insert(auditLog).values({
+    actorId: admin.uid,
+    action: "user.reset_link",
+    detail: email,
+  });
+
+  // shown once and never stored, so it cannot leak from the table later
+  return { notice: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/reset/${token}` };
+}

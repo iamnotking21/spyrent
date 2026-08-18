@@ -65,6 +65,36 @@ async function run() {
     assert.equal(row.reset_on, new Date().toISOString().slice(0, 10));
   });
 
+  await check("a child east of UTC rolls over on their own date", async () => {
+    // Kiritimati is UTC+14, so its date runs ahead of UTC for ten hours a day
+    await sql`update children set timezone = 'Pacific/Kiritimati' where id = ${c.id}`;
+    await sql`update rules set used_minutes = 30, reset_on = '2000-01-01' where id = ${r.id}`;
+
+    const res = await call(secret ? { authorization: `Bearer ${secret}` } : {});
+    assert.equal((await res.json()).ok, true);
+
+    const [row] = await sql`select used_minutes, reset_on from rules where id = ${r.id}`;
+    const [{ local }] = await sql`
+      select to_char(now() at time zone 'Pacific/Kiritimati', 'YYYY-MM-DD') as local`;
+    assert.equal(row.used_minutes, 0);
+    assert.equal(row.reset_on, local, "rolled over on the UTC date, not the child's");
+
+    await sql`update children set timezone = 'UTC' where id = ${c.id}`;
+  });
+
+  await check("fetching the policy rolls the day over by itself", async () => {
+    await sql`update rules set used_minutes = 44, reset_on = '2000-01-01' where id = ${r.id}`;
+    const [child] = await sql`select device_token from children where id = ${c.id}`;
+
+    const res = await fetch(`${base}/api/v1/policy`, {
+      headers: { authorization: `Bearer ${child.device_token}` },
+    });
+    assert.equal((await res.json()).ok, true);
+
+    const [row] = await sql`select used_minutes from rules where id = ${r.id}`;
+    assert.equal(row.used_minutes, 0, "a stale budget survived a policy fetch");
+  });
+
   await check("running it twice in a day changes nothing more", async () => {
     await sql`update rules set used_minutes = 12 where id = ${r.id}`;
     const res = await call(secret ? { authorization: `Bearer ${secret}` } : {});

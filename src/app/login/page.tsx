@@ -22,7 +22,12 @@ export default async function LoginPage() {
             <Field label="Password" name="password" type="password" placeholder="••••••••" />
           </ActionForm>
         </div>
-        <p className="text-sm text-ink-500 mt-5 text-center">
+        <p className="text-sm text-ink-500 mt-4 text-center">
+          <Link href="/forgot" className="text-brand-700 font-semibold">
+            Forgot your password?
+          </Link>
+        </p>
+        <p className="text-sm text-ink-500 mt-2 text-center">
           No account yet?{" "}
           <Link href="/register" className="text-brand-700 font-semibold">
             Create one

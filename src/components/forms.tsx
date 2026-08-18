@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-type State = { error?: string } | undefined;
+type State = { error?: string; notice?: string } | undefined;
 type Action = (state: State, form: FormData) => Promise<State>;
 
 function Submit({ label }: { label: string }) {
@@ -30,6 +30,11 @@ export function ActionForm({
   return (
     <form action={formAction} className={className ?? "space-y-4"}>
       {children}
+      {state?.notice ? (
+        <p className="text-sm font-medium text-brand-700 bg-brand-50 rounded-xl px-3 py-2 break-all">
+          {state.notice}
+        </p>
+      ) : null}
       {state?.error ? (
         <p className="text-sm font-medium text-rose-ink bg-rose-soft rounded-xl px-3 py-2">
           {state.error}

@@ -47,6 +47,8 @@ export const children = pgTable(
     passwordHash: text("password_hash").notNull(),
     deviceToken: text("device_token").notNull(),
     deviceModel: text("device_model"),
+    /** IANA zone reported by the device, so midnight means midnight there. */
+    timezone: text("timezone").notNull().default("UTC"),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -131,6 +133,25 @@ export const loginAttempts = pgTable(
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
   },
   (t) => [uniqueIndex("login_attempts_identifier_idx").on(t.identifier)],
+);
+
+/**
+ * One-shot password reset tokens. Only the hash is stored, so a leaked table
+ * does not hand over working reset links.
+ */
+export const passwordResets = pgTable(
+  "password_resets",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("password_resets_token_idx").on(t.tokenHash)],
 );
 
 /** Admin-visible audit trail. */

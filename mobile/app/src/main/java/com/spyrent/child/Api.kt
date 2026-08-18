@@ -77,7 +77,11 @@ class Api(private val baseUrl: String, private val deviceToken: String?) {
 
     /** Swap the pairing token typed by the parent for a child profile. */
     suspend fun pair(token: String, deviceModel: String): String {
-        val body = JSONObject().put("token", token).put("deviceModel", deviceModel)
+        val body = JSONObject()
+            .put("token", token)
+            .put("deviceModel", deviceModel)
+            // so the server rolls budgets over at midnight here, not in UTC
+            .put("timezone", java.util.TimeZone.getDefault().id)
         val res = request("/api/v1/pair", "POST", body, authed = false)
         return res.getJSONObject("child").getString("name")
     }
