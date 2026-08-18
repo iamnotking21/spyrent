@@ -4,7 +4,7 @@ Consent-based parental controls: app time budgets, site blocking, and honest usa
 Rebuilt from the original Android + PHP stack onto a single serverless web app.
 
 - **Marketing site** — `/`
-- **Parent portal** — `/portal` (children, rules, activity, device pairing)
+- **Parent portal** — `/portal` (statistics, children, rules, activity, device pairing)
 - **Admin portal** — `/admin` (accounts, platform counts, audit log)
 - **Device API** — `/api/v1/*` (consumed by the Android child app)
 
@@ -109,6 +109,8 @@ npm test
   subscription the push service reports as gone is dropped rather than retried forever
 - `tests/audit.test.mjs` — changes are recorded against the right child, read as plain
   sentences, never take an action down with them, and stay private to that parent
+- `tests/stats.test.mjs` — dashboard figures count the right days and children, rank the
+  busiest apps, and never include another parent
 - `tests/isolation.test.mjs` — one parent cannot read another parent's children, rules or
   activity; a device token only ever returns its own child
 - `tests/cron.test.mjs` — the daily budget reset clears spent minutes once, refuses an
