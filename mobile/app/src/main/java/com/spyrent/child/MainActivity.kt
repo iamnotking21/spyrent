@@ -52,7 +52,8 @@ class MainActivity : AppCompatActivity() {
             else -> "Connected as ${store.childName ?: "this device"}"
         }
 
-        val needsSites = paired && store.blockedDomains().isNotEmpty() && !siteBlockingOn()
+        val hasSiteRules = store.blockedDomains().isNotEmpty() || store.siteBudgets().isNotEmpty()
+        val needsSites = paired && hasSiteRules && !siteBlockingOn()
         binding.sitesButton.visibility = if (needsSites) android.view.View.VISIBLE else android.view.View.GONE
         binding.sitesHint.visibility = if (needsSites) android.view.View.VISIBLE else android.view.View.GONE
 

@@ -50,12 +50,22 @@ class SiteBlockerService : AccessibilityService() {
         if (packageName !in SUPPORTED_BROWSERS) return
 
         val blocked = store.blockedDomains()
-        if (blocked.isEmpty()) return
+        val budgets = store.siteBudgets()
+        if (blocked.isEmpty() && budgets.isEmpty()) return
 
         val host = currentHost(packageName) ?: return
-        val match = blocked.firstOrNull { host == it || host.endsWith(".$it") } ?: return
 
-        block(match)
+        blocked.firstOrNull { host == it || host.endsWith(".$it") }?.let { block(it); return }
+
+        // A background timer decrements site budgets, but the OS (MIUI
+        // especially) can refuse to let a plain background coroutine start an
+        // activity. A real accessibility callback like this one does not have
+        // that problem, so also catch an already-exhausted budget here — this
+        // fires on almost every scroll or content change, so the delay before
+        // it catches up is small even when the timer's own attempt is blocked.
+        budgets.entries
+            .firstOrNull { (domain, remaining) -> remaining <= 0 && (host == domain || host.endsWith(".$domain")) }
+            ?.let { block(it.key) }
     }
 
     override fun onInterrupt() = Unit
@@ -86,8 +96,14 @@ class SiteBlockerService : AccessibilityService() {
         val budgets = store.siteBudgets()
         if (budgets.isEmpty()) return
 
-        val packageName = rootInActiveWindow?.packageName?.toString()
-        if (packageName == null || packageName !in SUPPORTED_BROWSERS) return
+        // rootInActiveWindow's own packageName is not reliable for "what is in
+        // front" on every OEM build — it can lag behind or report a window
+        // that is not actually focused. UsageStatsManager's event stream
+        // (already proven correct for app blocking) is the trustworthy source
+        // for that decision; rootInActiveWindow is only used below to read the
+        // address bar text of whichever browser it says is in front.
+        val packageName = Usage.foregroundPackage(this)
+        if (packageName.isBlank() || packageName !in SUPPORTED_BROWSERS) return
 
         val host = currentHost(packageName) ?: return
         val match = budgets.keys.firstOrNull { host == it || host.endsWith(".$it") } ?: return
@@ -127,8 +143,22 @@ class SiteBlockerService : AccessibilityService() {
         LockActivity.show(this, domain, LockActivity.KIND_SITE)
     }
 
+    /**
+     * rootInActiveWindow is a single pointer to whatever window the platform
+     * currently considers "active", which has proven unreliable here — it can
+     * sit on a launcher or settings window well after a browser is genuinely
+     * in front. windows() lists every visible accessibility window, so hunt
+     * that list for the one the browser itself owns instead of trusting the
+     * single "active" pointer.
+     */
     private fun readAddressBar(browser: String): String? {
-        val root = rootInActiveWindow ?: return null
+        val root = windows
+            .asSequence()
+            .mapNotNull { it.root }
+            .firstOrNull { it.packageName == browser }
+            ?: rootInActiveWindow?.takeIf { it.packageName == browser }
+            ?: return null
+
         return try {
             ADDRESS_BAR_IDS
                 .map { "$browser:id/$it" }
@@ -168,8 +198,8 @@ class SiteBlockerService : AccessibilityService() {
         const val TICK_MS = 5_000L
         const val TICK_SECONDS = (TICK_MS / 1000).toInt()
 
-        /** Report accumulated site time roughly once a minute. */
-        const val REPORT_EVERY_N_TICKS = 12
+        /** Report accumulated site time every ~20s, to keep the server close to what the device already knows locally. */
+        const val REPORT_EVERY_N_TICKS = 4
 
         val SUPPORTED_BROWSERS = setOf(
             "com.android.chrome",

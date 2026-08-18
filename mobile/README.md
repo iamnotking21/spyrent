@@ -41,7 +41,8 @@ field to `http://10.0.2.2:3000`.
 | `SyncWorker.kt` | Every 15 min: report usage, refresh policy, heartbeat |
 | `BlockerService.kt` | Foreground service; shows the lock screen on a locked app |
 | `LockActivity.kt` | The "done for today" screen |
-| `SiteBlockerService.kt` | Accessibility service; blocks browsing to ruled-out domains |
+| `SiteBlockerService.kt` | Accessibility service; blocks browsing and tracks per-domain time budgets |
+| `PolicySync.kt` | Fetch-and-cache logic shared by the worker and the blocker service |
 | `BootReceiver.kt` | Restarts the service after a reboot |
 
 Three permissions matter. `PACKAGE_USAGE_STATS` is granted in Settings, not by a
@@ -72,6 +73,20 @@ adb shell appops set com.spyrent.child ACCESS_RESTRICTED_SETTINGS allow
 ```
 
 On a normally installed app the in-app button opens the right Settings screen.
+
+Two more MIUI-specific traps, found by testing on a real Xiaomi phone rather than the emulator:
+
+- **Reinstalling the app revokes Accessibility.** MIUI (and stock Android 13+) treats any APK
+  update as reason to silently disable a previously granted accessibility service. There is no
+  adb workaround on a retail device — WRITE_SECURE_SETTINGS is not available outside a rooted
+  shell — so the parent has to tap through Accessibility settings again after every update.
+- **A background service starting an activity can get intercepted.** MIUI's own permission
+  screen (SpecialPermissionInterceptActivity) can appear instead of the lock screen when it is
+  triggered from a plain background coroutine rather than a live accessibility callback. Grant
+  Spyrent "Display pop-up windows while running in the background" under App info → Other
+  permissions as a defensive measure. The site blocker also re-checks an exhausted budget from
+  inside `onAccessibilityEvent` itself, since that path is not subject to the same restriction
+  and fires on almost every scroll or content change.
 
 ## Release builds
 
