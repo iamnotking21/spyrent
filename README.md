@@ -80,6 +80,15 @@ node scripts/simulate-device.mjs <deviceToken> https://spyrent.vercel.app
 
 The token comes from the seed output or the Pairing card on any child page.
 
+It runs until interrupted. On Windows it survives a `timeout` wrapper, so stop it with Ctrl+C
+or it will keep inflating the demo numbers in the background.
+
+To put the demo child back to a clean story:
+
+```bash
+node scripts/reset-demo.mjs
+```
+
 ## Tests
 
 Start the dev server first — two of the suites drive it over HTTP.
