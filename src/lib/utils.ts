@@ -5,7 +5,8 @@ export function cx(...parts: Array<string | false | null | undefined>) {
 export function fmtMinutes(mins: number) {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  return h ? `${h}h ${m}m` : `${m}m`;
+  if (!h) return `${m}m`;
+  return m ? `${h}h ${m}m` : `${h}h`;
 }
 
 export function fmtDate(d: Date | string | null) {

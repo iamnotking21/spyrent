@@ -17,3 +17,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     </Shell>
   );
 }
+
+export const metadata = { title: "Admin · Spyrent" };

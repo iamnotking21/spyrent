@@ -115,8 +115,9 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
                   {r.dailyMinutes === null ? (
                     <Badge tone="rose">blocked</Badge>
                   ) : (
-                    <Badge tone="amber">
+                    <Badge tone={r.usedMinutes >= r.dailyMinutes ? "rose" : "amber"}>
                       {fmtMinutes(r.usedMinutes)} / {fmtMinutes(r.dailyMinutes)}
+                      {r.usedMinutes >= r.dailyMinutes ? " · used up" : ""}
                     </Badge>
                   )}
                   <form action={deleteRuleAction}>

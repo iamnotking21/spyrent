@@ -37,3 +37,5 @@ export default async function RegisterPage() {
     </main>
   );
 }
+
+export const metadata = { title: "Create account · Spyrent" };

@@ -32,3 +32,5 @@ export default async function LoginPage() {
     </main>
   );
 }
+
+export const metadata = { title: "Sign in · Spyrent" };

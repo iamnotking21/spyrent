@@ -16,3 +16,5 @@ export default async function PortalLayout({ children }: { children: React.React
     </Shell>
   );
 }
+
+export const metadata = { title: "Parent portal · Spyrent" };
