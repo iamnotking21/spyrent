@@ -31,7 +31,8 @@ export async function GET(req: Request) {
       .map((r) => ({
         domain: r.target,
         label: r.label ?? r.target,
-        dailyMinutes: r.dailyMinutes,
+        dailyMinutes: r.dailyMinutes === null ? null : r.dailyMinutes + r.bonusMinutes,
+        usedMinutes: r.usedMinutes,
         blocked: r.blocked,
       })),
   });

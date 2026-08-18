@@ -111,6 +111,8 @@ npm test
   sentences, never take an action down with them, and stay private to that parent
 - `tests/stats.test.mjs` — dashboard figures count the right days and children, rank the
   busiest apps, and never include another parent
+- `tests/site-budget.test.mjs` — a site with a minutes-per-day rule reports its used minutes
+  to the device, reads as spent once the limit is reached, and a granted bonus extends it
 - `tests/isolation.test.mjs` — one parent cannot read another parent's children, rules or
   activity; a device token only ever returns its own child
 - `tests/cron.test.mjs` — the daily budget reset clears spent minutes once, refuses an

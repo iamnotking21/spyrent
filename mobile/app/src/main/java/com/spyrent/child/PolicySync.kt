@@ -15,5 +15,12 @@ object PolicySync {
         store.childName = policy.childName
         store.saveLockedPackages(policy.apps.filter { it.locked }.map { it.packageName }.toSet())
         store.saveBlockedDomains(policy.sites.filter { it.blocked }.map { it.domain }.toSet())
+
+        // time-limited sites get a fresh countdown from the server's own
+        // numbers each sync; SiteBlockerService ticks it down in between
+        val budgets = policy.sites
+            .filter { !it.blocked && it.dailyMinutes != null }
+            .associate { it.domain to (it.remainingMinutes ?: 0) * 60 }
+        store.saveSiteBudgets(budgets)
     }
 }

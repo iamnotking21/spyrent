@@ -172,7 +172,13 @@ class MainActivity : AppCompatActivity() {
                 else -> "$label — ${rule.remainingMinutes} min left"
             }
         }
-        policy.sites.filter { it.blocked }.forEach { lines += "${it.domain} — blocked" }
+        policy.sites.forEach { site ->
+            lines += when {
+                site.blocked -> "${site.domain} — blocked"
+                site.locked -> "${site.domain} — done for today"
+                else -> "${site.domain} — ${site.remainingMinutes} min left"
+            }
+        }
         return lines.joinToString("\n")
     }
 }

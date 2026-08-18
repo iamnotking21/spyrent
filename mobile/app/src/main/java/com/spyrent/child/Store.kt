@@ -42,6 +42,36 @@ class Store(context: Context) {
 
     fun blockedDomains(): Set<String> = prefs.getStringSet(KEY_DOMAINS, emptySet()) ?: emptySet()
 
+    /**
+     * Seconds remaining today for domains that carry a time budget rather than
+     * an outright block. Reset from the server on every policy sync; ticked
+     * down locally in between by whatever is watching the browser.
+     */
+    fun saveSiteBudgets(remainingSeconds: Map<String, Int>) {
+        val encoded = remainingSeconds.map { "${it.key}|${it.value}" }.toSet()
+        prefs.edit().putStringSet(KEY_SITE_BUDGETS, encoded).apply()
+    }
+
+    fun siteBudgets(): Map<String, Int> {
+        val raw = prefs.getStringSet(KEY_SITE_BUDGETS, emptySet()) ?: emptySet()
+        return raw.mapNotNull { entry ->
+            val i = entry.lastIndexOf('|')
+            if (i < 0) return@mapNotNull null
+            val seconds = entry.substring(i + 1).toIntOrNull() ?: return@mapNotNull null
+            entry.substring(0, i) to seconds
+        }.toMap()
+    }
+
+    /** Ticks one domain's local budget down; returns the new remaining seconds, or null if untracked. */
+    fun decrementSiteBudget(domain: String, bySeconds: Int): Int? {
+        val current = siteBudgets().toMutableMap()
+        val remaining = current[domain] ?: return null
+        val next = (remaining - bySeconds).coerceAtLeast(0)
+        current[domain] = next
+        saveSiteBudgets(current)
+        return next
+    }
+
     fun api() = Api(baseUrl, deviceToken)
 
     private companion object {
@@ -51,5 +81,6 @@ class Store(context: Context) {
         const val KEY_LAST_REPORT = "last_reported_at"
         const val KEY_LOCKED = "locked_packages"
         const val KEY_DOMAINS = "blocked_domains"
+        const val KEY_SITE_BUDGETS = "site_budgets"
     }
 }

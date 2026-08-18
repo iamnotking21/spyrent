@@ -24,7 +24,20 @@ data class AppRule(
         get() = dailyMinutes?.let { (it - usedMinutes).coerceAtLeast(0) }
 }
 
-data class SiteRule(val domain: String, val label: String, val dailyMinutes: Int?, val blocked: Boolean)
+data class SiteRule(
+    val domain: String,
+    val label: String,
+    val dailyMinutes: Int?,
+    val usedMinutes: Int,
+    val blocked: Boolean,
+) {
+    /** True when the child may not open this site right now. */
+    val locked: Boolean
+        get() = blocked || (dailyMinutes != null && usedMinutes >= dailyMinutes)
+
+    val remainingMinutes: Int?
+        get() = dailyMinutes?.let { (it - usedMinutes).coerceAtLeast(0) }
+}
 
 data class Policy(val childName: String, val apps: List<AppRule>, val sites: List<SiteRule>)
 
@@ -108,6 +121,7 @@ class Api(private val baseUrl: String, private val deviceToken: String?) {
                 domain = it.getString("domain"),
                 label = it.optString("label").ifBlank { it.getString("domain") },
                 dailyMinutes = if (it.isNull("dailyMinutes")) null else it.getInt("dailyMinutes"),
+                usedMinutes = it.optInt("usedMinutes", 0),
                 blocked = it.optBoolean("blocked", false),
             )
         }
@@ -154,7 +168,7 @@ class Api(private val baseUrl: String, private val deviceToken: String?) {
         request("/api/v1/requests", "POST", body)
     }
 
-    /** Report usage. The server adds these minutes to the matching rule budget. */
+    /** Report app usage. The server adds these minutes to the matching rule budget. */
     suspend fun reportUsage(events: List<UsageEvent>) {
         if (events.isEmpty()) return
         val array = JSONArray()
@@ -170,6 +184,23 @@ class Api(private val baseUrl: String, private val deviceToken: String?) {
         }
         request("/api/v1/events", "POST", JSONObject().put("events", array))
     }
+
+    /** Report time spent on a domain. Mirrors reportUsage but for site rules. */
+    suspend fun reportSiteUsage(events: List<SiteUsageEvent>) {
+        if (events.isEmpty()) return
+        val array = JSONArray()
+        events.forEach {
+            array.put(
+                JSONObject()
+                    .put("kind", "site")
+                    .put("target", it.domain)
+                    .put("label", it.domain)
+                    .put("minutes", it.minutes)
+                    .put("blocked", it.blocked),
+            )
+        }
+        request("/api/v1/events", "POST", JSONObject().put("events", array))
+    }
 }
 
 data class InstalledApp(
@@ -179,6 +210,7 @@ data class InstalledApp(
     val icon: String? = null,
 )
 data class UsageEvent(val packageName: String, val label: String, val minutes: Int, val blocked: Boolean)
+data class SiteUsageEvent(val domain: String, val minutes: Int, val blocked: Boolean = false)
 
 private inline fun <T> JSONArray.mapObjects(transform: (JSONObject) -> T): List<T> =
     (0 until length()).map { transform(getJSONObject(it)) }
