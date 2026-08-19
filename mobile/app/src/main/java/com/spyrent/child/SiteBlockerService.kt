@@ -174,7 +174,11 @@ class SiteBlockerService : AccessibilityService() {
         if (now - lastBlockedAt < BLOCK_COOLDOWN_MS) return
         lastBlockedAt = now
 
-        performGlobalAction(GLOBAL_ACTION_BACK)
+        // HOME rather than BACK: back only steps through the browser's own
+        // history, so on a tab with history the child stays on the blocked
+        // page. Home is what actually leaves the site, and it is the same
+        // action app blocking uses.
+        performGlobalAction(GLOBAL_ACTION_HOME)
         Lock.show(this, domain, LockActivity.KIND_SITE)
     }
 
