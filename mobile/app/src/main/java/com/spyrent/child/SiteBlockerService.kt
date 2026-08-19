@@ -36,10 +36,29 @@ class SiteBlockerService : AccessibilityService() {
     /** Seconds spent on each budgeted domain since the last report to the server. */
     private val unreportedSeconds = mutableMapOf<String, Int>()
 
+    /**
+     * The service no longer filters by package — it has to see games too — so
+     * this callback runs on nearly every UI change on the device. Reading
+     * SharedPreferences that often would be wasteful, so the locked set is held
+     * in memory and refreshed on a timer.
+     */
+    @Volatile private var lockedCache: Set<String> = emptySet()
+    private var lockedCacheAt = 0L
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         store = Store(this)
+        lockedCache = store.lockedPackages()
         watchBudgets()
+    }
+
+    private fun lockedPackages(): Set<String> {
+        val now = System.currentTimeMillis()
+        if (now - lockedCacheAt > LOCKED_CACHE_MS) {
+            lockedCacheAt = now
+            lockedCache = store.lockedPackages()
+        }
+        return lockedCache
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -47,6 +66,7 @@ class SiteBlockerService : AccessibilityService() {
         if (!::store.isInitialized) store = Store(this)
 
         val packageName = event.packageName?.toString() ?: return
+        if (packageName == this.packageName) return
 
         // A locked app is closed by sending the device home from here.
         //
@@ -54,9 +74,10 @@ class SiteBlockerService : AccessibilityService() {
         // enable_floating_window=false and quietly drops an overlay placed over
         // a fullscreen game, and starting an Activity from a background service
         // is refused outright. An accessibility service performing a global
-        // action has neither problem, and this service is already running for
-        // site blocking, so it is the one mechanism that holds everywhere.
-        if (packageName != this.packageName && store.lockedPackages().contains(packageName)) {
+        // action has neither problem, so it is the one mechanism that holds
+        // everywhere — which is also why this service can no longer restrict
+        // itself to browsers.
+        if (lockedPackages().contains(packageName)) {
             blockApp(packageName)
             return
         }
@@ -219,6 +240,7 @@ class SiteBlockerService : AccessibilityService() {
 
     private companion object {
         const val BLOCK_COOLDOWN_MS = 3_000L
+        const val LOCKED_CACHE_MS = 5_000L
         const val TICK_MS = 5_000L
         const val TICK_SECONDS = (TICK_MS / 1000).toInt()
 

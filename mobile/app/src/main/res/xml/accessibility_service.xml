@@ -5,5 +5,4 @@
     android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_description"
-    android:notificationTimeout="300"
-    android:packageNames="com.android.chrome,org.mozilla.firefox,com.microsoft.emmx,com.opera.browser,com.brave.browser,com.sec.android.app.sbrowser,com.duckduckgo.mobile.android" />
+    android:notificationTimeout="300" />

@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Spyrent</string>
-    <string name="accessibility_description">Lets Spyrent see the address bar in your browser, so the sites your family agreed to block stay blocked. Nothing you type elsewhere is read.</string>
+    <string name="accessibility_description">Lets Spyrent see which app is open, and the address bar in your browser, so the limits your family agreed on are actually applied. Nothing you type is read, and nothing is sent anywhere except the apps and sites already shown in this app.</string>
 </resources>

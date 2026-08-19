@@ -74,7 +74,12 @@ adb shell appops set com.spyrent.child ACCESS_RESTRICTED_SETTINGS allow
 
 On a normally installed app the in-app button opens the right Settings screen.
 
-Two more MIUI-specific traps, found by testing on a real Xiaomi phone rather than the emulator:
+Three more MIUI-specific traps, found by testing on a real Xiaomi phone rather than the emulator:
+
+- **Force-stopping the app disables its accessibility service.** Not just a reinstall — any
+  force stop, including the one Settings offers, switches the service off and it cannot turn
+  itself back on. A child who knows that can defeat blocking until a parent re-enables it.
+  There is no way around this: no app can grant itself accessibility.
 
 - **Reinstalling the app revokes Accessibility.** MIUI (and stock Android 13+) treats any APK
   update as reason to silently disable a previously granted accessibility service. There is no
