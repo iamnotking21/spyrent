@@ -50,8 +50,12 @@ class BlockerService : Service() {
                 runCatching {
                     if (Usage.hasPermission(this@BlockerService)) {
                         val current = Usage.foregroundPackage(this@BlockerService)
+                        val ours = current == packageName
+
+                        if (current.isNotBlank() && !ours) spendBudget(store, current)
+
                         val locked = current.isNotBlank() &&
-                            current != packageName &&
+                            !ours &&
                             store.lockedPackages().contains(current)
 
                         if (locked) {
@@ -61,7 +65,7 @@ class BlockerService : Service() {
                                 LockActivity.KIND_BUDGET,
                                 current,
                             )
-                        } else if (LockOverlay.isShowing && current != packageName) {
+                        } else if (LockOverlay.isShowing && !ours) {
                             // the child left the locked app, so take the overlay
                             // down rather than covering whatever they moved to
                             LockOverlay.hide(this@BlockerService)
@@ -78,6 +82,24 @@ class BlockerService : Service() {
                 delay(CHECK_INTERVAL_MS)
             }
         }
+    }
+
+    /**
+     * Count the seconds this app has been in front and lock it the moment its
+     * budget runs out.
+     *
+     * Waiting for the server to agree would mean a two minute limit lasting
+     * until the next usage report — up to fifteen minutes of extra play. The
+     * package is added to the locked set straight away so both this service and
+     * the accessibility service act on it immediately.
+     *
+     * This counter only counts; it never reports. SyncWorker already sends the
+     * platform's own usage figures, and if both reported, every budget would be
+     * spent at twice the rate of the clock.
+     */
+    private fun spendBudget(store: Store, packageName: String) {
+        val remaining = store.decrementAppBudget(packageName, CHECK_INTERVAL_SECONDS) ?: return
+        if (remaining <= 0) store.lockPackageNow(packageName)
     }
 
     private fun buildNotification(): Notification {
@@ -111,9 +133,11 @@ class BlockerService : Service() {
         private const val CHANNEL_ID = "spyrent-blocker"
         private const val NOTIFICATION_ID = 4711
         private const val CHECK_INTERVAL_MS = 2_000L
+        private const val CHECK_INTERVAL_SECONDS = (CHECK_INTERVAL_MS / 1000).toInt()
 
         /** 2s checks × 10 = a rule reaches the device within ~20s of being saved. */
         private const val POLICY_SYNC_EVERY_N_TICKS = 10
+
 
         fun start(context: Context) {
             val intent = Intent(context, BlockerService::class.java)

@@ -43,17 +43,43 @@ class Store(context: Context) {
     fun blockedDomains(): Set<String> = prefs.getStringSet(KEY_DOMAINS, emptySet()) ?: emptySet()
 
     /**
-     * Seconds remaining today for domains that carry a time budget rather than
-     * an outright block. Reset from the server on every policy sync; ticked
-     * down locally in between by whatever is watching the browser.
+     * Seconds remaining today for a target that carries a time budget rather
+     * than an outright block. Reset from the server on every policy sync, and
+     * ticked down locally in between.
+     *
+     * Local counting is what makes a short limit usable. Usage is only reported
+     * to the server every so often, so a rule of "two minutes" would otherwise
+     * take until the next report before the server agreed it had been spent,
+     * and the child would keep playing in the meantime.
      */
-    fun saveSiteBudgets(remainingSeconds: Map<String, Int>) {
-        val encoded = remainingSeconds.map { "${it.key}|${it.value}" }.toSet()
-        prefs.edit().putStringSet(KEY_SITE_BUDGETS, encoded).apply()
+    fun saveSiteBudgets(remainingSeconds: Map<String, Int>) = saveBudgets(KEY_SITE_BUDGETS, remainingSeconds)
+
+    fun siteBudgets(): Map<String, Int> = budgets(KEY_SITE_BUDGETS)
+
+    /** Ticks one domain's local budget down; returns the new remaining seconds, or null if untracked. */
+    fun decrementSiteBudget(domain: String, bySeconds: Int): Int? =
+        decrementBudget(KEY_SITE_BUDGETS, domain, bySeconds)
+
+    fun saveAppBudgets(remainingSeconds: Map<String, Int>) = saveBudgets(KEY_APP_BUDGETS, remainingSeconds)
+
+    fun appBudgets(): Map<String, Int> = budgets(KEY_APP_BUDGETS)
+
+    fun decrementAppBudget(packageName: String, bySeconds: Int): Int? =
+        decrementBudget(KEY_APP_BUDGETS, packageName, bySeconds)
+
+    /** Add a package to the locked set without waiting for the next policy sync. */
+    fun lockPackageNow(packageName: String) {
+        val current = lockedPackages().toMutableSet()
+        if (current.add(packageName)) saveLockedPackages(current)
     }
 
-    fun siteBudgets(): Map<String, Int> {
-        val raw = prefs.getStringSet(KEY_SITE_BUDGETS, emptySet()) ?: emptySet()
+    private fun saveBudgets(key: String, remainingSeconds: Map<String, Int>) {
+        val encoded = remainingSeconds.map { "${it.key}|${it.value}" }.toSet()
+        prefs.edit().putStringSet(key, encoded).apply()
+    }
+
+    private fun budgets(key: String): Map<String, Int> {
+        val raw = prefs.getStringSet(key, emptySet()) ?: emptySet()
         return raw.mapNotNull { entry ->
             val i = entry.lastIndexOf('|')
             if (i < 0) return@mapNotNull null
@@ -62,13 +88,12 @@ class Store(context: Context) {
         }.toMap()
     }
 
-    /** Ticks one domain's local budget down; returns the new remaining seconds, or null if untracked. */
-    fun decrementSiteBudget(domain: String, bySeconds: Int): Int? {
-        val current = siteBudgets().toMutableMap()
-        val remaining = current[domain] ?: return null
+    private fun decrementBudget(key: String, target: String, bySeconds: Int): Int? {
+        val current = budgets(key).toMutableMap()
+        val remaining = current[target] ?: return null
         val next = (remaining - bySeconds).coerceAtLeast(0)
-        current[domain] = next
-        saveSiteBudgets(current)
+        current[target] = next
+        saveBudgets(key, current)
         return next
     }
 
@@ -82,5 +107,6 @@ class Store(context: Context) {
         const val KEY_LOCKED = "locked_packages"
         const val KEY_DOMAINS = "blocked_domains"
         const val KEY_SITE_BUDGETS = "site_budgets"
+        const val KEY_APP_BUDGETS = "app_budgets"
     }
 }

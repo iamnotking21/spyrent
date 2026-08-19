@@ -47,7 +47,7 @@ object Usage {
     fun foregroundPackage(context: Context): String {
         val manager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val now = System.currentTimeMillis()
-        val events = manager.queryEvents(now - 10_000, now)
+        val events = manager.queryEvents(now - WINDOW_MS, now)
         val event = android.app.usage.UsageEvents.Event()
 
         var latestPackage = ""
@@ -62,8 +62,32 @@ object Usage {
                 latestPackage = event.packageName
             }
         }
-        return latestPackage
+
+        // Events only fire when an app *comes* to the foreground. Sitting inside
+        // one produces nothing, so this window goes empty after a few seconds
+        // and the caller would think no app was open at all — which silently
+        // stopped every budget from counting down. Remember the last app seen
+        // and keep reporting it until a different one appears.
+        if (latestPackage.isNotBlank()) {
+            lastForeground = latestPackage
+            return latestPackage
+        }
+
+        // ...but only while the screen is actually on, so a phone left face
+        // down does not burn through a budget.
+        val power = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        if (!power.isInteractive) {
+            lastForeground = ""
+            return ""
+        }
+
+        return lastForeground
     }
+
+    private const val WINDOW_MS = 10_000L
+
+    /** The last app genuinely seen in front, kept for the gap between events. */
+    private var lastForeground: String = ""
 
     /** Launchable apps only — the parent does not want to scroll through system services. */
     fun installedApps(context: Context): List<InstalledApp> {
