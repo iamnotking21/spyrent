@@ -47,6 +47,20 @@ class SiteBlockerService : AccessibilityService() {
         if (!::store.isInitialized) store = Store(this)
 
         val packageName = event.packageName?.toString() ?: return
+
+        // A locked app is closed by sending the device home from here.
+        //
+        // The overlay route does not survive on every device: MIUI reports
+        // enable_floating_window=false and quietly drops an overlay placed over
+        // a fullscreen game, and starting an Activity from a background service
+        // is refused outright. An accessibility service performing a global
+        // action has neither problem, and this service is already running for
+        // site blocking, so it is the one mechanism that holds everywhere.
+        if (packageName != this.packageName && store.lockedPackages().contains(packageName)) {
+            blockApp(packageName)
+            return
+        }
+
         if (packageName !in SUPPORTED_BROWSERS) return
 
         val blocked = store.blockedDomains()
@@ -141,6 +155,16 @@ class SiteBlockerService : AccessibilityService() {
 
         performGlobalAction(GLOBAL_ACTION_BACK)
         Lock.show(this, domain, LockActivity.KIND_SITE)
+    }
+
+    /** Close a locked app by going home, then explain why. */
+    private fun blockApp(packageName: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastBlockedAt < BLOCK_COOLDOWN_MS) return
+        lastBlockedAt = now
+
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        Lock.show(this, Usage.label(this, packageName), LockActivity.KIND_BUDGET, packageName)
     }
 
     /**

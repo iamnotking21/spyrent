@@ -42,7 +42,8 @@ async function run() {
     await recordLoginFailure(key);
     const r = await checkLoginAllowed(key);
     assert.equal(r.allowed, false);
-    assert.ok(r.retryAfterSeconds > 0 && r.retryAfterSeconds <= 15 * 60);
+    // ceil() of a just-set 15 minute lockout can read 901, so allow the rounding
+    assert.ok(r.retryAfterSeconds > 0 && r.retryAfterSeconds <= 15 * 60 + 5);
   });
 
   await check("a correct password clears the record", async () => {

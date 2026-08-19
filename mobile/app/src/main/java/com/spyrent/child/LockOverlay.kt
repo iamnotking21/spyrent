@@ -43,8 +43,15 @@ object LockOverlay {
         )
 
     /**
-     * Show the lock. Returns false when there is no overlay permission, so the
-     * caller can fall back to launching LockActivity instead.
+     * Show the lock, falling back to LockActivity if the window manager
+     * refuses.
+     *
+     * Deliberately does not gate on canDrawOverlays(): MIUI reports false there
+     * even when the permission has in fact been granted, because it keeps its
+     * own separate overlay permission and answers the standard API from that.
+     * Trusting it meant the overlay was never even attempted on the exact
+     * devices it exists to support. Attempting the addView and handling the
+     * refusal is the only reliable test.
      */
     fun show(
         context: Context,
@@ -52,9 +59,7 @@ object LockOverlay {
         kind: String,
         target: String?,
         onAsk: ((String, String) -> Unit)? = null,
-    ): Boolean {
-        if (!canShow(context)) return false
-
+    ) {
         main.post {
             if (view != null) return@post
 
@@ -114,10 +119,11 @@ object LockOverlay {
             runCatching {
                 windows.addView(root, params)
                 view = root
+            }.onFailure {
+                // no overlay permission after all, so fall back to the activity
+                LockActivity.show(context, label, kind, target)
             }
         }
-
-        return true
     }
 
     fun hide(context: Context) {

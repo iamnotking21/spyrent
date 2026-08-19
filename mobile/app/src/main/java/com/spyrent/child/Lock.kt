@@ -19,11 +19,11 @@ object Lock {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun show(context: Context, label: String, kind: String, target: String? = null) {
-        val shown = LockOverlay.show(context, label, kind, target) { pkg, name ->
+        // LockOverlay falls back to the activity itself if the window manager
+        // refuses, so there is nothing to decide here
+        LockOverlay.show(context, label, kind, target) { pkg, name ->
             askForMoreTime(context, pkg, name)
         }
-
-        if (!shown) LockActivity.show(context, label, kind, target)
     }
 
     private fun askForMoreTime(context: Context, packageName: String, label: String) {

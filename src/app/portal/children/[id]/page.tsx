@@ -26,7 +26,12 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
   if (!child) notFound();
   if (s.role !== "admin" && child.parentId !== s.uid) notFound();
 
-  const [ruleRows, appRows, eventRows, requestRows, auditRows] = await Promise.all([
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  // every read the page needs, issued together — the week summary and the
+  // per-app totals used to run after this batch, adding two serial round trips
+  // to a page that already had everything else in flight
+  const [ruleRows, appRows, eventRows, requestRows, auditRows, week, usage] = await Promise.all([
     db.select().from(rules).where(eq(rules.childId, childId)).orderBy(desc(rules.createdAt)),
     db.select().from(apps).where(eq(apps.childId, childId)).orderBy(desc(apps.seenAt)),
     db
@@ -46,19 +51,16 @@ export default async function ChildPage({ params }: { params: Promise<{ id: stri
       .where(eq(auditLog.childId, childId))
       .orderBy(desc(auditLog.createdAt))
       .limit(15),
+    weekFor(childId, child.timezone),
+    db
+      .select({
+        target: events.target,
+        minutes: sql<number>`coalesce(sum(${events.minutes}), 0)::int`,
+      })
+      .from(events)
+      .where(and(eq(events.childId, childId), gte(events.occurredAt, weekAgo)))
+      .groupBy(events.target),
   ]);
-
-  const week = await weekFor(childId, child.timezone);
-
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const usage = await db
-    .select({
-      target: events.target,
-      minutes: sql<number>`coalesce(sum(${events.minutes}), 0)::int`,
-    })
-    .from(events)
-    .where(and(eq(events.childId, childId), gte(events.occurredAt, weekAgo)))
-    .groupBy(events.target);
 
   const minutesByPackage = new Map(usage.map((u) => [u.target, u.minutes]));
   const ruledPackages = new Set(
